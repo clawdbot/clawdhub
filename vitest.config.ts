@@ -5,6 +5,12 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/convex/_generated/**',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
@@ -20,6 +26,7 @@ export default defineConfig({
         'convex/lib/tokens.ts',
         'convex/httpApi.ts',
         'packages/clawdhub/src/**/*.ts',
+        'packages/schema/src/**/*.ts',
       ],
       exclude: [
         'node_modules/',
@@ -29,6 +36,7 @@ export default defineConfig({
         'packages/clawdhub/src/cli.ts',
         'packages/clawdhub/src/config.ts',
         'packages/clawdhub/src/types.ts',
+        'packages/schema/dist/',
       ],
     },
   },

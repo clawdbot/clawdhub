@@ -1,6 +1,6 @@
 /* @vitest-environment node */
 
-import { type } from 'arktype'
+import { ApiCliWhoamiResponseSchema } from '@clawdhub/schema'
 import { describe, expect, it, vi } from 'vitest'
 import { apiRequest, downloadZip } from './http'
 
@@ -8,15 +8,15 @@ describe('apiRequest', () => {
   it('adds bearer token and parses json', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ ok: true }),
+      json: async () => ({ user: { handle: null } }),
     })
     vi.stubGlobal('fetch', fetchMock)
     const result = await apiRequest(
       'https://example.com',
       { method: 'GET', path: '/x', token: 'clh_token' },
-      type({ ok: 'boolean' }),
+      ApiCliWhoamiResponseSchema,
     )
-    expect(result.ok).toBe(true)
+    expect(result.user.handle).toBeNull()
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer clh_token')

@@ -19,7 +19,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "arktype": "^2.1.29",
+    "@clawdhub/schema": "workspace:*",
     "commander": "^14.0.2",
     "fflate": "^0.8.2",
     "ora": "^9.0.0",

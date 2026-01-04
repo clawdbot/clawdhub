@@ -2,6 +2,9 @@
   "name": "clawdhub",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun --bun vite dev --port 3000",
     "build": "bun --bun vite build",
@@ -12,10 +15,11 @@
     "convex:deploy": "bunx convex deploy --typecheck=disable --yes",
     "lint": "bun run lint:biome && bun run lint:oxlint",
     "lint:biome": "biome check .",
-    "lint:oxlint": "oxlint --type-aware --tsconfig ./tsconfig.oxlint.json ./src ./convex ./packages/clawdhub/src",
+    "lint:oxlint": "oxlint --type-aware --tsconfig ./tsconfig.oxlint.json ./src ./convex ./packages/clawdhub/src ./packages/schema/src",
     "format": "biome format --write ."
   },
   "dependencies": {
+    "@clawdhub/schema": "workspace:*",
     "@auth/core": "^0.41.1",
     "@convex-dev/auth": "^0.0.90",
     "@fontsource/bricolage-grotesque": "^5.2.10",
@@ -31,7 +35,6 @@
     "@tanstack/react-router-ssr-query": "^1.144.0",
     "@tanstack/react-start": "^1.145.3",
     "@tanstack/router-plugin": "^1.145.2",
-    "arktype": "^2.1.29",
     "clsx": "^2.1.1",
     "convex": "^1.31.2",
     "fflate": "^0.8.2",
@@ -57,9 +60,7 @@
     "@types/semver": "^7.7.1",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.16",
-    "commander": "^14.0.2",
     "jsdom": "^27.4.0",
-    "ora": "^9.0.0",
     "oxlint": "^1.36.0",
     "oxlint-tsgolint": "^0.10.1",
     "typescript": "^5.9.3",

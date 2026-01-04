@@ -1,8 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { parseArk } from './shared/ark.js'
-import { type GlobalConfig, GlobalConfigSchema } from './shared/schemas.js'
+import { type GlobalConfig, GlobalConfigSchema, parseArk } from '@clawdhub/schema'
 
 export function getGlobalConfigPath() {
   const home = homedir()

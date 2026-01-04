@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, relative, resolve, sep } from 'node:path'
+import { type Lockfile, LockfileSchema, parseArk } from '@clawdhub/schema'
 import { unzipSync } from 'fflate'
-import { parseArk } from './shared/ark.js'
-import { type Lockfile, LockfileSchema } from './shared/schemas.js'
 
 const TEXT_EXTENSIONS = new Set([
   'md',

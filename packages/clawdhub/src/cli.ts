@@ -3,12 +3,6 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import { stdin } from 'node:process'
 import { createInterface } from 'node:readline/promises'
-import { Command } from 'commander'
-import ora from 'ora'
-import semver from 'semver'
-import { getGlobalConfigPath, readGlobalConfig, writeGlobalConfig } from './config.js'
-import { apiRequest, downloadZip } from './http.js'
-import { parseArk } from './shared/ark.js'
 import {
   ApiCliPublishResponseSchema,
   ApiCliUploadUrlResponseSchema,
@@ -18,7 +12,13 @@ import {
   ApiSkillResolveResponseSchema,
   ApiUploadFileResponseSchema,
   CliPublishRequestSchema,
-} from './shared/schemas.js'
+  parseArk,
+} from '@clawdhub/schema'
+import { Command } from 'commander'
+import ora from 'ora'
+import semver from 'semver'
+import { getGlobalConfigPath, readGlobalConfig, writeGlobalConfig } from './config.js'
+import { apiRequest, downloadZip } from './http.js'
 import {
   extractZipToDir,
   hashSkillFiles,

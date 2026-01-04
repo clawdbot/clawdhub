@@ -1,5 +1,5 @@
-import type { ArkValidator } from './shared/ark.js'
-import { parseArk } from './shared/ark.js'
+import type { ArkValidator } from '@clawdhub/schema'
+import { parseArk } from '@clawdhub/schema'
 
 type RequestArgs =
   | { method: 'GET' | 'POST'; path: string; token?: string; body?: unknown }

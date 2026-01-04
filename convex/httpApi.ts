@@ -1,5 +1,4 @@
-import { parseArk } from '../packages/clawdhub/src/shared/ark.js'
-import { CliPublishRequestSchema } from '../packages/clawdhub/src/shared/schemas.js'
+import { CliPublishRequestSchema, parseArk } from '@clawdhub/schema'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { httpAction } from './_generated/server'

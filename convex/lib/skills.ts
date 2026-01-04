@@ -1,9 +1,9 @@
-import { parseArk } from '../../packages/clawdhub/src/shared/ark.js'
 import {
   type ClawdisSkillMetadata,
   ClawdisSkillMetadataSchema,
+  parseArk,
   type SkillInstallSpec,
-} from '../../packages/clawdhub/src/shared/schemas.js'
+} from '@clawdhub/schema'
 
 export type ParsedSkillFrontmatter = Record<string, string>
 export type { ClawdisSkillMetadata, SkillInstallSpec }

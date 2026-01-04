@@ -1,3 +1,4 @@
+import type { ClawdisSkillMetadata, SkillInstallSpec } from '@clawdhub/schema'
 import { createFileRoute } from '@tanstack/react-router'
 import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
@@ -5,7 +6,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { api } from '../../../convex/_generated/api'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
-import type { ClawdisSkillMetadata, SkillInstallSpec } from '../../../convex/lib/skills'
 
 export const Route = createFileRoute('/skills/$slug')({
   component: SkillDetail,

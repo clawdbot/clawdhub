@@ -1,9 +1,10 @@
 /* @vitest-environment node */
+
 import { describe, expect, it } from 'vitest'
 import { parseArk } from './ark'
 import { CliPublishRequestSchema, LockfileSchema } from './schemas'
 
-describe('shared schemas', () => {
+describe('@clawdhub/schema', () => {
   it('parses lockfile records', () => {
     const lock = parseArk(
       LockfileSchema,
@@ -29,7 +30,7 @@ describe('shared schemas', () => {
     expect(payload.files[0]?.path).toBe('SKILL.md')
   })
 
-  it('formats parse errors with label', () => {
+  it('throws labeled errors', () => {
     expect(() => parseArk(LockfileSchema, null, 'Lockfile')).toThrow(/Lockfile:/)
   })
 })
