@@ -245,7 +245,7 @@ function buildMetaFile(
     const previous = {
       version: existing.latest.version,
       publishedAt: existing.latest.publishedAt,
-      commit: commitUrl(repo, baseCommitSha),
+      commit: existing.latest.commit ?? commitUrl(repo, baseCommitSha),
     }
     history = [previous, ...history.filter((entry) => entry.version !== previous.version)]
   }
