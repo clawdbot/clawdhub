@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
+import type { SkillOrigin } from './skills'
 import {
   buildSkillFingerprint,
   extractZipToDir,
@@ -11,8 +12,10 @@ import {
   hashSkillZip,
   listTextFiles,
   readLockfile,
+  readSkillOrigin,
   sha256Hex,
   writeLockfile,
+  writeSkillOrigin,
 } from './skills'
 
 describe('skills', () => {
@@ -46,6 +49,18 @@ describe('skills', () => {
     expect(read).toEqual({ version: 1, skills: {} })
   })
 
+  it('returns empty lockfile on schema mismatch', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'clawdhub-work-schema-'))
+    await mkdir(join(workdir, '.clawdhub'), { recursive: true })
+    await writeFile(
+      join(workdir, '.clawdhub', 'lock.json'),
+      JSON.stringify({ version: 1, skills: 'nope' }),
+      'utf8',
+    )
+    const read = await readLockfile(workdir)
+    expect(read).toEqual({ version: 1, skills: {} })
+  })
+
   it('skips dotfiles and node_modules when listing text files', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'clawdhub-files-'))
     await writeFile(join(workdir, 'SKILL.md'), 'hi', 'utf8')
@@ -74,6 +89,14 @@ describe('skills', () => {
     )
   })
 
+  it('falls back to text/plain for unknown text extensions', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'clawdhub-env-'))
+    await writeFile(join(workdir, 'SKILL.md'), 'hi', 'utf8')
+    await writeFile(join(workdir, 'config.env'), 'TOKEN=demo', 'utf8')
+    const files = await listTextFiles(workdir)
+    expect(files.find((file) => file.relPath === 'config.env')?.contentType).toBe('text/plain')
+  })
+
   it('hashes skill files deterministically', async () => {
     const { fingerprint } = hashSkillFiles([
       { relPath: 'b.txt', bytes: strToU8('b') },
@@ -98,5 +121,71 @@ describe('skills', () => {
       { path: 'notes.md', sha256: sha256Hex(strToU8('world')) },
     ])
     expect(fingerprint).toBe(expected)
+  })
+
+  it('ignores unsafe or non-text entries when hashing zips', () => {
+    const zip = zipSync({
+      'SKILL.md': strToU8('hello'),
+      'folder/': strToU8(''),
+      '../evil.txt': strToU8('nope'),
+      'bad\\path.txt': strToU8('nope'),
+      'image.png': strToU8('nope'),
+    })
+    const { files } = hashSkillZip(new Uint8Array(zip))
+    expect(files).toEqual([{ path: 'SKILL.md', sha256: sha256Hex(strToU8('hello')), size: 5 }])
+  })
+
+  it('builds fingerprints from valid entries only', () => {
+    const fingerprint = buildSkillFingerprint([
+      { path: '', sha256: '' },
+      { path: 'valid.txt', sha256: sha256Hex(strToU8('ok')) },
+    ])
+    const expected = buildSkillFingerprint([
+      { path: 'valid.txt', sha256: sha256Hex(strToU8('ok')) },
+    ])
+    expect(fingerprint).toBe(expected)
+  })
+
+  it('returns null for invalid skill origin metadata', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'clawdhub-origin-'))
+    expect(await readSkillOrigin(workdir)).toBeNull()
+
+    await mkdir(join(workdir, '.clawdhub'), { recursive: true })
+    await writeFile(
+      join(workdir, '.clawdhub', 'origin.json'),
+      JSON.stringify({ version: 2 }),
+      'utf8',
+    )
+    expect(await readSkillOrigin(workdir)).toBeNull()
+
+    await writeFile(
+      join(workdir, '.clawdhub', 'origin.json'),
+      JSON.stringify({ version: 1, registry: 'demo', slug: 'x', installedAt: 1 }),
+      'utf8',
+    )
+    expect(await readSkillOrigin(workdir)).toBeNull()
+
+    await writeFile(
+      join(workdir, '.clawdhub', 'origin.json'),
+      JSON.stringify({
+        version: 1,
+        registry: 'demo',
+        slug: 'x',
+        installedVersion: '0.1.0',
+        installedAt: 'nope',
+      }),
+      'utf8',
+    )
+    expect(await readSkillOrigin(workdir)).toBeNull()
+
+    const origin: SkillOrigin = {
+      version: 1,
+      registry: 'https://example.com',
+      slug: 'demo',
+      installedVersion: '1.2.3',
+      installedAt: 123,
+    }
+    await writeSkillOrigin(workdir, origin)
+    expect(await readSkillOrigin(workdir)).toEqual(origin)
   })
 })

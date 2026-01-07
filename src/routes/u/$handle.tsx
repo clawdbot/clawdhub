@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from 'convex/react'
+import { useMutation, useQuery } from 'convex/react'
+import { useEffect, useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SkillCard } from '../../components/SkillCard'
@@ -10,11 +11,24 @@ export const Route = createFileRoute('/u/$handle')({
 
 function UserProfile() {
   const { handle } = Route.useParams()
+  const me = useQuery(api.users.me)
   const user = useQuery(api.users.getByHandle, { handle }) as Doc<'users'> | null | undefined
   const starredSkills = useQuery(
     api.stars.listByUser,
     user ? { userId: user._id, limit: 50 } : 'skip',
   ) as Doc<'skills'>[] | undefined
+
+  const isSelf = Boolean(me && user && me._id === user._id)
+  const [tab, setTab] = useState<'stars' | 'installed'>('stars')
+  const [includeRemoved, setIncludeRemoved] = useState(false)
+  const installed = useQuery(
+    api.telemetry.getMyInstalled,
+    isSelf && tab === 'installed' ? { includeRemoved } : 'skip',
+  ) as TelemetryResponse | null | undefined
+
+  useEffect(() => {
+    if (!isSelf && tab === 'installed') setTab('stars')
+  }, [isSelf, tab])
 
   if (user === undefined) {
     return (
@@ -53,34 +67,196 @@ function UserProfile() {
         </div>
       </div>
 
-      <h2 className="section-title" style={{ fontSize: '1.3rem' }}>
-        Stars
-      </h2>
-      <p className="section-subtitle">Skills this user has starred.</p>
+      {isSelf ? (
+        <div className="profile-tabs" role="tablist" aria-label="Profile tabs">
+          <button
+            className={tab === 'stars' ? 'profile-tab is-active' : 'profile-tab'}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'stars'}
+            onClick={() => setTab('stars')}
+          >
+            Stars
+          </button>
+          <button
+            className={tab === 'installed' ? 'profile-tab is-active' : 'profile-tab'}
+            type="button"
+            role="tab"
+            aria-selected={tab === 'installed'}
+            onClick={() => setTab('installed')}
+          >
+            Installed
+          </button>
+        </div>
+      ) : null}
 
-      {isLoadingSkills ? (
-        <div className="card">
-          <div className="loading-indicator">Loading stars…</div>
-        </div>
-      ) : skills.length === 0 ? (
-        <div className="card">No stars yet.</div>
+      {tab === 'installed' && isSelf ? (
+        <InstalledSection
+          includeRemoved={includeRemoved}
+          onToggleRemoved={() => setIncludeRemoved((value) => !value)}
+          data={installed}
+        />
       ) : (
-        <div className="grid">
-          {skills.map((skill) => (
-            <SkillCard
-              key={skill._id}
-              skill={skill}
-              badge={skill.batch === 'highlighted' ? 'Highlighted' : undefined}
-              summaryFallback="Agent-ready skill pack."
-              meta={
-                <div className="stat">
-                  ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads}
-                </div>
-              }
-            />
-          ))}
-        </div>
+        <>
+          <h2 className="section-title" style={{ fontSize: '1.3rem' }}>
+            Stars
+          </h2>
+          <p className="section-subtitle">Skills this user has starred.</p>
+
+          {isLoadingSkills ? (
+            <div className="card">
+              <div className="loading-indicator">Loading stars…</div>
+            </div>
+          ) : skills.length === 0 ? (
+            <div className="card">No stars yet.</div>
+          ) : (
+            <div className="grid">
+              {skills.map((skill) => (
+                <SkillCard
+                  key={skill._id}
+                  skill={skill}
+                  badge={skill.batch === 'highlighted' ? 'Highlighted' : undefined}
+                  summaryFallback="Agent-ready skill pack."
+                  meta={
+                    <div className="stat">
+                      ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads} · ⤒{' '}
+                      {skill.stats.installsAllTime ?? 0}
+                    </div>
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </main>
   )
+}
+
+function InstalledSection(props: {
+  includeRemoved: boolean
+  onToggleRemoved: () => void
+  data: TelemetryResponse | null | undefined
+}) {
+  const clearTelemetry = useMutation(api.telemetry.clearMyTelemetry)
+  const [showRaw, setShowRaw] = useState(false)
+  const data = props.data
+  if (data === undefined) {
+    return (
+      <>
+        <h2 className="section-title" style={{ fontSize: '1.3rem' }}>
+          Installed
+        </h2>
+        <div className="card">
+          <div className="loading-indicator">Loading telemetry…</div>
+        </div>
+      </>
+    )
+  }
+
+  if (data === null) {
+    return (
+      <>
+        <h2 className="section-title" style={{ fontSize: '1.3rem' }}>
+          Installed
+        </h2>
+        <div className="card">Sign in to view your installed skills.</div>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <h2 className="section-title" style={{ fontSize: '1.3rem' }}>
+        Installed
+      </h2>
+      <p className="section-subtitle" style={{ maxWidth: 760 }}>
+        Private view. Only you can see your folders/roots. Everyone else only sees aggregated
+        install counts per skill.
+      </p>
+      <div className="profile-actions">
+        <button className="btn" type="button" onClick={props.onToggleRemoved}>
+          {props.includeRemoved ? 'Hide removed' : 'Show removed'}
+        </button>
+        <button className="btn" type="button" onClick={() => setShowRaw((value) => !value)}>
+          {showRaw ? 'Hide JSON' : 'Show JSON'}
+        </button>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            if (!window.confirm('Delete all telemetry data?')) return
+            void clearTelemetry()
+          }}
+        >
+          Delete telemetry
+        </button>
+      </div>
+
+      {showRaw ? (
+        <div className="card telemetry-json" style={{ marginBottom: 18 }}>
+          <pre className="mono" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+            {JSON.stringify(data, null, 2)}
+          </pre>
+        </div>
+      ) : null}
+
+      {data.roots.length === 0 ? (
+        <div className="card">No telemetry yet. Run `clawdhub sync` from the CLI.</div>
+      ) : (
+        <div style={{ display: 'grid', gap: 16 }}>
+          {data.roots.map((root) => (
+            <div key={root.rootId} className="card telemetry-root">
+              <div className="telemetry-root-header">
+                <div>
+                  <div className="telemetry-root-title">{root.label}</div>
+                  <div className="telemetry-root-meta">
+                    Last sync {new Date(root.lastSeenAt).toLocaleString()}
+                    {root.expiredAt ? ' · stale' : ''}
+                  </div>
+                </div>
+                <div className="tag">{root.skills.length} skills</div>
+              </div>
+              {root.skills.length === 0 ? (
+                <div className="stat">No skills found in this root.</div>
+              ) : (
+                <div className="telemetry-skill-list">
+                  {root.skills.map((entry) => (
+                    <div key={`${root.rootId}:${entry.skill.slug}`} className="telemetry-skill-row">
+                      <a className="telemetry-skill-link" href={`/skills/${entry.skill.slug}`}>
+                        <span>{entry.skill.displayName}</span>
+                        <span className="telemetry-skill-slug">/{entry.skill.slug}</span>
+                      </a>
+                      <div className="telemetry-skill-meta mono">
+                        {entry.lastVersion ? `v${entry.lastVersion}` : 'v?'}{' '}
+                        {entry.removedAt ? '· removed' : ''}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
+type TelemetryResponse = {
+  roots: Array<{
+    rootId: string
+    label: string
+    firstSeenAt: number
+    lastSeenAt: number
+    expiredAt?: number
+    skills: Array<{
+      skill: { slug: string; displayName: string; summary?: string; stats: unknown }
+      firstSeenAt: number
+      lastSeenAt: number
+      lastVersion?: string
+      removedAt?: number
+    }>
+  }>
+  cutoffDays: number
 }

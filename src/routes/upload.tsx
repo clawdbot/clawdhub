@@ -1,10 +1,17 @@
 import { createFileRoute, useNavigate, useSearch } from '@tanstack/react-router'
-import { isTextContentType, TEXT_FILE_EXTENSION_SET } from 'clawdhub-schema'
 import { useAction, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import semver from 'semver'
 import { api } from '../../convex/_generated/api'
 import { expandFiles } from '../lib/uploadFiles'
+import {
+  formatBytes,
+  formatPublishError,
+  hashFile,
+  isTextFile,
+  readText,
+  uploadFile,
+} from './upload/utils'
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
@@ -20,6 +27,7 @@ export function Upload() {
   const { updateSlug } = useSearch({ from: '/upload' })
   const generateUploadUrl = useMutation(api.uploads.generateUploadUrl)
   const publishVersion = useAction(api.skills.publishVersion)
+  const generateChangelogPreview = useAction(api.skills.generateChangelogPreview)
   const existingSkill = useQuery(
     api.skills.getBySlug,
     updateSlug ? { slug: updateSlug } : 'skip',
@@ -29,21 +37,15 @@ export function Upload() {
   const [slug, setSlug] = useState(updateSlug ?? '')
   const [displayName, setDisplayName] = useState('')
   const [version, setVersion] = useState('1.0.0')
-  const isUpdate = Boolean(updateSlug && existingSkill)
-
-  // Pre-populate form when updating existing skill
-  useEffect(() => {
-    if (existingSkill?.skill && existingSkill?.latestVersion) {
-      setSlug(existingSkill.skill.slug)
-      setDisplayName(existingSkill.skill.displayName)
-      // Bump version automatically
-      const currentVersion = existingSkill.latestVersion.version
-      const nextVersion = semver.inc(currentVersion, 'patch')
-      if (nextVersion) setVersion(nextVersion)
-    }
-  }, [existingSkill])
   const [tags, setTags] = useState('latest')
   const [changelog, setChangelog] = useState('')
+  const [changelogStatus, setChangelogStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    'idle',
+  )
+  const [changelogSource, setChangelogSource] = useState<'auto' | 'user' | null>(null)
+  const changelogTouchedRef = useRef(false)
+  const changelogRequestRef = useRef(0)
+  const changelogKeyRef = useRef<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -84,6 +86,69 @@ export function Upload() {
   const trimmedSlug = slug.trim()
   const trimmedName = displayName.trim()
   const trimmedChangelog = changelog.trim()
+
+  useEffect(() => {
+    if (!existingSkill?.skill || !existingSkill?.latestVersion) return
+    setSlug(existingSkill.skill.slug)
+    setDisplayName(existingSkill.skill.displayName)
+    const nextVersion = semver.inc(existingSkill.latestVersion.version, 'patch')
+    if (nextVersion) setVersion(nextVersion)
+  }, [existingSkill])
+
+  useEffect(() => {
+    if (changelogTouchedRef.current) return
+    if (trimmedChangelog) return
+    if (!trimmedSlug || !SLUG_PATTERN.test(trimmedSlug)) return
+    if (!semver.valid(version)) return
+    if (!hasSkillFile) return
+    if (files.length === 0) return
+
+    const skillIndex = normalizedPaths.findIndex((path) => {
+      const lower = path.trim().toLowerCase()
+      return lower === 'skill.md' || lower === 'skills.md'
+    })
+    if (skillIndex < 0) return
+
+    const skillFile = files[skillIndex]
+    if (!skillFile) return
+
+    const key = `${trimmedSlug}:${version}:${skillFile.size}:${skillFile.lastModified}:${normalizedPaths.length}`
+    if (changelogKeyRef.current === key) return
+    changelogKeyRef.current = key
+
+    const requestId = ++changelogRequestRef.current
+    setChangelogStatus('loading')
+
+    void readText(skillFile)
+      .then((text) => {
+        if (changelogRequestRef.current !== requestId) return null
+        return generateChangelogPreview({
+          slug: trimmedSlug,
+          version,
+          readmeText: text.slice(0, 20_000),
+          filePaths: normalizedPaths,
+        })
+      })
+      .then((result) => {
+        if (!result) return
+        if (changelogRequestRef.current !== requestId) return
+        setChangelog(result.changelog)
+        setChangelogSource('auto')
+        setChangelogStatus('ready')
+      })
+      .catch(() => {
+        if (changelogRequestRef.current !== requestId) return
+        setChangelogStatus('error')
+      })
+  }, [
+    files,
+    generateChangelogPreview,
+    hasSkillFile,
+    normalizedPaths,
+    trimmedChangelog,
+    trimmedSlug,
+    version,
+  ])
   const parsedTags = useMemo(
     () =>
       tags
@@ -319,12 +384,29 @@ export function Upload() {
               </label>
             </div>
             <label className="upload-field">
-              <span>Changelog</span>
+              <div className="upload-field-header">
+                <span>Changelog</span>
+                {changelogSource === 'auto' ? (
+                  <span className="upload-field-hint">
+                    {changelogStatus === 'loading' ? 'Auto-generating…' : 'Auto-generated'}
+                  </span>
+                ) : changelogStatus === 'error' ? (
+                  <span className="upload-field-hint">Auto-generation failed</span>
+                ) : changelogStatus === 'loading' ? (
+                  <span className="upload-field-hint">Auto-generating…</span>
+                ) : null}
+              </div>
               <textarea
                 className="search-input upload-input"
                 rows={4}
                 value={changelog}
-                onChange={(event) => setChangelog(event.target.value)}
+                onChange={(event) => {
+                  changelogTouchedRef.current = true
+                  changelogRequestRef.current += 1
+                  setChangelogSource('user')
+                  setChangelogStatus('idle')
+                  setChangelog(event.target.value)
+                }}
                 placeholder="What changed in this version?"
               />
             </label>
@@ -423,77 +505,4 @@ export function Upload() {
       </form>
     </main>
   )
-}
-
-async function uploadFile(uploadUrl: string, file: File) {
-  const response = await fetch(uploadUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
-    body: file,
-  })
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${await response.text()}`)
-  }
-  const payload = (await response.json()) as { storageId: string }
-  return payload.storageId
-}
-
-async function hashFile(file: File) {
-  const buffer =
-    typeof file.arrayBuffer === 'function'
-      ? await file.arrayBuffer()
-      : await new Response(file).arrayBuffer()
-  const hash = await crypto.subtle.digest('SHA-256', new Uint8Array(buffer))
-  const bytes = new Uint8Array(hash)
-  return Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-function formatBytes(bytes: number) {
-  if (!Number.isFinite(bytes)) return '0 B'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let size = bytes
-  let unit = 0
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024
-    unit += 1
-  }
-  return `${size.toFixed(size < 10 && unit > 0 ? 1 : 0)} ${units[unit]}`
-}
-
-function formatPublishError(error: unknown) {
-  if (error && typeof error === 'object' && 'data' in error) {
-    const data = (error as { data?: unknown }).data
-    if (typeof data === 'string' && data.trim()) return data.trim()
-    if (
-      data &&
-      typeof data === 'object' &&
-      'message' in data &&
-      typeof (data as { message?: unknown }).message === 'string'
-    ) {
-      const message = (data as { message?: string }).message?.trim()
-      if (message) return message
-    }
-  }
-  if (error instanceof Error) {
-    const cleaned = error.message
-      .replace(/\[CONVEX[^\]]*\]\s*/g, '')
-      .replace(/\[Request ID:[^\]]*\]\s*/g, '')
-      .replace(/^Server Error Called by client\s*/i, '')
-      .replace(/^ConvexError:\s*/i, '')
-      .trim()
-    if (cleaned && cleaned !== 'Server Error') return cleaned
-  }
-  return 'Publish failed. Please try again.'
-}
-
-function isTextFile(file: File) {
-  const path = (file.webkitRelativePath || file.name).trim().toLowerCase()
-  if (!path) return false
-  const parts = path.split('.')
-  const extension = parts.length > 1 ? (parts.at(-1) ?? '') : ''
-  if (file.type && isTextContentType(file.type)) return true
-  if (extension && TEXT_FILE_EXTENSION_SET.has(extension)) return true
-  return false
 }

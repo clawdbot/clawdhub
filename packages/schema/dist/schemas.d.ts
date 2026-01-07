@@ -70,6 +70,10 @@ export declare const CliPublishRequestSchema: import("arktype/internal/variants/
         contentType?: string | undefined;
     }[];
     tags?: string[] | undefined;
+    forkOf?: {
+        slug: string;
+        version?: string | undefined;
+    } | undefined;
 }, {}>;
 export type CliPublishRequest = (typeof CliPublishRequestSchema)[inferred];
 export declare const ApiCliPublishResponseSchema: import("arktype/internal/variants/object.ts").ObjectType<{
@@ -91,6 +95,20 @@ export declare const ApiSkillResolveResponseSchema: import("arktype/internal/var
     latestVersion: {
         version: string;
     } | null;
+}, {}>;
+export declare const CliTelemetrySyncRequestSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    roots: {
+        rootId: string;
+        label: string;
+        skills: {
+            slug: string;
+            version?: string | null | undefined;
+        }[];
+    }[];
+}, {}>;
+export type CliTelemetrySyncRequest = (typeof CliTelemetrySyncRequestSchema)[inferred];
+export declare const ApiCliTelemetrySyncResponseSchema: import("arktype/internal/variants/object.ts").ObjectType<{
+    ok: true;
 }, {}>;
 export declare const SkillInstallSpecSchema: import("arktype/internal/variants/object.ts").ObjectType<{
     kind: "brew" | "node" | "go" | "uv";

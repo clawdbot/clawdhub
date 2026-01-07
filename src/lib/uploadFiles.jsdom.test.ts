@@ -18,7 +18,7 @@ describe('expandFiles (jsdom)', () => {
       'hetzner-cloud-skill/SKILL.md': new Uint8Array(strToU8('hello')),
       'hetzner-cloud-skill/notes.txt': new Uint8Array(strToU8('notes')),
     })
-    const zipBytes = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength)
+    const zipBytes = Uint8Array.from(zip).buffer
     const zipFile = new File([zipBytes], 'bundle.zip', { type: 'application/zip' })
 
     const readerBuffer = await readWithFileReader(zipFile)

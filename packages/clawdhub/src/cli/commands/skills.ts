@@ -13,7 +13,9 @@ import {
   hashSkillFiles,
   listTextFiles,
   readLockfile,
+  readSkillOrigin,
   writeLockfile,
+  writeSkillOrigin,
 } from '../../skills.js'
 import { getRegistry } from '../registry.js'
 import type { GlobalOpts, ResolveResult } from '../types.js'
@@ -85,6 +87,14 @@ export async function cmdInstall(
     spinner.text = `Downloading ${trimmed}@${resolvedVersion}`
     const zip = await downloadZip(registry, { slug: trimmed, version: resolvedVersion })
     await extractZipToDir(zip, target)
+
+    await writeSkillOrigin(target, {
+      version: 1,
+      registry,
+      slug: trimmed,
+      installedVersion: resolvedVersion,
+      installedAt: Date.now(),
+    })
 
     const lock = await readLockfile(opts.workdir)
     lock.skills[trimmed] = {
@@ -200,6 +210,16 @@ export async function cmdUpdate(
       await rm(target, { recursive: true, force: true })
       const zip = await downloadZip(registry, { slug: entry, version: targetVersion })
       await extractZipToDir(zip, target)
+
+      const existingOrigin = await readSkillOrigin(target)
+      await writeSkillOrigin(target, {
+        version: 1,
+        registry: existingOrigin?.registry ?? registry,
+        slug: existingOrigin?.slug ?? entry,
+        installedVersion: targetVersion,
+        installedAt: existingOrigin?.installedAt ?? Date.now(),
+      })
+
       lock.skills[entry] = { version: targetVersion, installedAt: Date.now() }
       spinner.succeed(`${entry}: updated -> ${targetVersion}`)
     } catch (error) {

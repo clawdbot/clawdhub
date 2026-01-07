@@ -99,6 +99,7 @@ describe('cmdSync', () => {
     interactive = false
     mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
       if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path === '/api/cli/telemetry/sync') return { ok: true }
       if (args.path.startsWith('/api/skill/resolve?')) {
         const u = new URL(`https://x.test${args.path}`)
         const slug = u.searchParams.get('slug')
@@ -135,6 +136,7 @@ describe('cmdSync', () => {
     })
     mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
       if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path === '/api/cli/telemetry/sync') return { ok: true }
       if (args.path.startsWith('/api/skill/resolve?')) {
         const u = new URL(`https://x.test${args.path}`)
         const slug = u.searchParams.get('slug')
@@ -170,6 +172,7 @@ describe('cmdSync', () => {
     interactive = false
     mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
       if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path === '/api/cli/telemetry/sync') return { ok: true }
       if (args.path.startsWith('/api/skill/resolve?')) {
         return { match: { version: '1.0.0' }, latestVersion: { version: '1.0.0' } }
       }
@@ -201,6 +204,7 @@ describe('cmdSync', () => {
 
     mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
       if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path === '/api/cli/telemetry/sync') return { ok: true }
       if (args.path.startsWith('/api/skill/resolve?')) {
         return { match: null, latestVersion: null }
       }
@@ -219,6 +223,7 @@ describe('cmdSync', () => {
     interactive = true
     mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
       if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path === '/api/cli/telemetry/sync') return { ok: true }
       if (args.path.startsWith('/api/skill/resolve?')) {
         const u = new URL(`https://x.test${args.path}`)
         const slug = u.searchParams.get('slug')
@@ -243,5 +248,23 @@ describe('cmdSync', () => {
     const update = calls.find((c) => c.slug === 'update-skill')
     if (!update) throw new Error('Missing update-skill publish')
     expect(update.changelog).toBe('')
+  })
+
+  it('skips telemetry when CLAWDHUB_DISABLE_TELEMETRY is set', async () => {
+    interactive = false
+    process.env.CLAWDHUB_DISABLE_TELEMETRY = '1'
+    mockApiRequest.mockImplementation(async (_registry: string, args: { path: string }) => {
+      if (args.path === '/api/cli/whoami') return { user: { handle: 'steipete' } }
+      if (args.path.startsWith('/api/skill/resolve?')) {
+        return { match: { version: '1.0.0' }, latestVersion: { version: '1.0.0' } }
+      }
+      throw new Error(`Unexpected apiRequest: ${args.path}`)
+    })
+
+    await cmdSync(makeOpts(), { root: ['/scan'], all: true, dryRun: true }, true)
+    expect(
+      mockApiRequest.mock.calls.some((call) => call[1]?.path === '/api/cli/telemetry/sync'),
+    ).toBe(false)
+    delete process.env.CLAWDHUB_DISABLE_TELEMETRY
   })
 })

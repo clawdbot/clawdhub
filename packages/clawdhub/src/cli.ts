@@ -37,11 +37,7 @@ function resolveGlobalOpts(): GlobalOpts {
   const workdir = resolve(raw.workdir ?? process.cwd())
   const dir = resolve(workdir, raw.dir ?? 'skills')
   const site = raw.site ?? process.env.CLAWDHUB_SITE ?? DEFAULT_SITE
-  const registrySource = raw.registry
-    ? 'cli'
-    : process.env.CLAWDHUB_REGISTRY
-      ? 'env'
-      : 'default'
+  const registrySource = raw.registry ? 'cli' : process.env.CLAWDHUB_REGISTRY ? 'env' : 'default'
   const registry = raw.registry ?? process.env.CLAWDHUB_REGISTRY ?? DEFAULT_REGISTRY
   return { workdir, dir, site, registry, registrySource }
 }
@@ -160,6 +156,7 @@ program
   .option('--slug <slug>', 'Skill slug')
   .option('--name <name>', 'Display name')
   .option('--version <version>', 'Version (semver)')
+  .option('--fork-of <slug[@version]>', 'Mark as a fork of an existing skill')
   .option('--changelog <text>', 'Changelog text')
   .option('--tags <tags>', 'Comma-separated tags', 'latest')
   .action(async (folder, options) => {

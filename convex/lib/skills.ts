@@ -6,8 +6,9 @@ import {
   type SkillInstallSpec,
   TEXT_FILE_EXTENSION_SET,
 } from 'clawdhub-schema'
+import { parse as parseYaml } from 'yaml'
 
-export type ParsedSkillFrontmatter = Record<string, string>
+export type ParsedSkillFrontmatter = Record<string, unknown>
 export type { ClawdisSkillMetadata, SkillInstallSpec }
 
 const FRONTMATTER_START = '---'
@@ -20,14 +21,19 @@ export function parseFrontmatter(content: string): ParsedSkillFrontmatter {
   const endIndex = normalized.indexOf(`\n${FRONTMATTER_START}`, 3)
   if (endIndex === -1) return frontmatter
   const block = normalized.slice(4, endIndex)
-  for (const line of block.split('\n')) {
-    const match = line.match(/^([\w-]+):\s*(.*)$/)
-    if (!match) continue
-    const key = match[1]
-    const rawValue = match[2].trim()
-    if (!key || !rawValue) continue
-    frontmatter[key] = stripQuotes(rawValue)
+
+  try {
+    const parsed = parseYaml(block) as unknown
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return frontmatter
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!/^[\w-]+$/.test(key)) continue
+      const jsonValue = toJsonValue(value)
+      if (jsonValue !== undefined) frontmatter[key] = jsonValue
+    }
+  } catch {
+    return frontmatter
   }
+
   return frontmatter
 }
 
@@ -36,15 +42,32 @@ export function getFrontmatterValue(frontmatter: ParsedSkillFrontmatter, key: st
   return typeof raw === 'string' ? raw : undefined
 }
 
-export function parseClawdisMetadata(frontmatter: ParsedSkillFrontmatter) {
-  const raw = getFrontmatterValue(frontmatter, 'metadata')
+export function getFrontmatterMetadata(frontmatter: ParsedSkillFrontmatter) {
+  const raw = frontmatter.metadata
   if (!raw) return undefined
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      return parsed ?? undefined
+    } catch {
+      return undefined
+    }
+  }
+  if (typeof raw === 'object') return raw
+  return undefined
+}
+
+export function parseClawdisMetadata(frontmatter: ParsedSkillFrontmatter) {
+  const metadata = getFrontmatterMetadata(frontmatter)
+  const clawdisFromMetadata =
+    metadata && typeof metadata === 'object' && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>).clawdis
+      : undefined
+  const clawdisRaw = clawdisFromMetadata ?? frontmatter.clawdis
+  if (!clawdisRaw || typeof clawdisRaw !== 'object' || Array.isArray(clawdisRaw)) return undefined
+
   try {
-    const parsed = JSON.parse(raw) as { clawdis?: unknown }
-    if (!parsed || typeof parsed !== 'object') return undefined
-    const clawdis = (parsed as { clawdis?: unknown }).clawdis
-    if (!clawdis || typeof clawdis !== 'object') return undefined
-    const clawdisObj = clawdis as Record<string, unknown>
+    const clawdisObj = clawdisRaw as Record<string, unknown>
     const requiresRaw =
       typeof clawdisObj.requires === 'object' && clawdisObj.requires !== null
         ? (clawdisObj.requires as Record<string, unknown>)
@@ -113,12 +136,12 @@ export function buildEmbeddingText(params: {
 }) {
   const { frontmatter, readme, otherFiles, maxChars = DEFAULT_EMBEDDING_MAX_CHARS } = params
   const headerParts = [
-    frontmatter.name,
-    frontmatter.description,
-    frontmatter.homepage,
-    frontmatter.website,
-    frontmatter.url,
-    frontmatter.emoji,
+    getFrontmatterValue(frontmatter, 'name'),
+    getFrontmatterValue(frontmatter, 'description'),
+    getFrontmatterValue(frontmatter, 'homepage'),
+    getFrontmatterValue(frontmatter, 'website'),
+    getFrontmatterValue(frontmatter, 'url'),
+    getFrontmatterValue(frontmatter, 'emoji'),
   ].filter(Boolean)
   const fileParts = otherFiles.map((file) => `# ${file.path}\n${file.content}`)
   const raw = [headerParts.join('\n'), readme, ...fileParts].filter(Boolean).join('\n\n')
@@ -138,14 +161,32 @@ export async function hashSkillFiles(files: Array<{ path: string; sha256: string
   return toHex(new Uint8Array(digest))
 }
 
-function stripQuotes(value: string) {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1)
+function toJsonValue(value: unknown): unknown {
+  if (value === null) return null
+  if (value === undefined) return undefined
+  if (typeof value === 'string') {
+    const trimmedEnd = value.trimEnd()
+    return trimmedEnd.trim() ? trimmedEnd : undefined
   }
-  return value
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'bigint') return value.toString()
+  if (value instanceof Date) return value.toISOString()
+  if (Array.isArray(value)) {
+    return value.map((entry) => {
+      const next = toJsonValue(entry)
+      return next === undefined ? null : next
+    })
+  }
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {}
+    for (const [key, entry] of Object.entries(value)) {
+      const next = toJsonValue(entry)
+      if (next !== undefined) out[key] = next
+    }
+    return out
+  }
+  return undefined
 }
 
 function normalizeStringList(input: unknown): string[] {
@@ -186,4 +227,10 @@ function toHex(bytes: Uint8Array) {
   let out = ''
   for (const byte of bytes) out += byte.toString(16).padStart(2, '0')
   return out
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') return false
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
 }

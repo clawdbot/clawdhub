@@ -102,7 +102,7 @@ describe('Upload route', () => {
       'hetzner-cloud-skill/SKILL.md': new Uint8Array(strToU8('hello')),
       'hetzner-cloud-skill/notes.txt': new Uint8Array(strToU8('notes')),
     })
-    const zipBytes = zip.buffer.slice(zip.byteOffset, zip.byteOffset + zip.byteLength)
+    const zipBytes = Uint8Array.from(zip).buffer
     const zipFile = new File([zipBytes], 'bundle.zip', { type: 'application/zip' })
 
     const input = screen.getByTestId('upload-input') as HTMLInputElement
@@ -141,10 +141,16 @@ describe('Upload route', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /publish/i }))
     await waitFor(() => {
-      expect(publishVersion).toHaveBeenCalled()
+      expect(
+        publishVersion.mock.calls.some((call) =>
+          Array.isArray((call[0] as { files?: unknown }).files),
+        ),
+      ).toBe(true)
     })
-    const args = publishVersion.mock.calls[0]?.[0] as { files?: Array<{ path: string }> }
-    expect(args.files?.[0]?.path).toBe('SKILL.md')
+    const args = publishVersion.mock.calls
+      .map((call) => call[0] as { files?: Array<{ path: string }> })
+      .find((call) => Array.isArray(call.files))
+    expect(args?.files?.[0]?.path).toBe('SKILL.md')
   })
 
   it('blocks non-text folder uploads (png)', async () => {

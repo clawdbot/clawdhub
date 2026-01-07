@@ -1,11 +1,11 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from 'convex/react'
 import { useEffect, useMemo, useState } from 'react'
 import { api } from '../../../convex/_generated/api'
 import type { Doc } from '../../../convex/_generated/dataModel'
 import { SkillCard } from '../../components/SkillCard'
 
-const sortKeys = ['newest', 'downloads', 'stars', 'name', 'updated'] as const
+const sortKeys = ['newest', 'downloads', 'installs', 'stars', 'name', 'updated'] as const
 type SortKey = (typeof sortKeys)[number]
 type SortDir = 'asc' | 'desc'
 
@@ -22,34 +22,37 @@ function parseDir(value: unknown, sort: SortKey): SortDir {
 
 export const Route = createFileRoute('/skills/')({
   validateSearch: (search) => {
-    const sort = parseSort(search.sort)
     return {
-      q: typeof search.q === 'string' ? search.q : '',
-      sort,
-      dir: parseDir(search.dir, sort),
-      highlighted: search.highlighted === '1' || search.highlighted === 'true',
-      view: search.view === 'cards' ? 'cards' : 'list',
+      q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
+      sort: typeof search.sort === 'string' ? parseSort(search.sort) : undefined,
+      dir: search.dir === 'asc' || search.dir === 'desc' ? search.dir : undefined,
+      highlighted: search.highlighted === '1' || search.highlighted === 'true' ? true : undefined,
+      view: search.view === 'cards' || search.view === 'list' ? search.view : undefined,
     }
   },
   component: SkillsIndex,
 })
 
 function SkillsIndex() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const search = Route.useSearch()
-  const [query, setQuery] = useState(search.q)
+  const sort = search.sort ?? 'newest'
+  const dir = parseDir(search.dir, sort)
+  const view = search.view ?? 'list'
+  const highlightedOnly = search.highlighted ?? false
+  const [query, setQuery] = useState(search.q ?? '')
 
   const skills = useQuery(api.skills.list, { limit: 500 }) as Doc<'skills'>[] | undefined
   const isLoadingSkills = skills === undefined
 
   useEffect(() => {
-    setQuery(search.q)
+    setQuery(search.q ?? '')
   }, [search.q])
 
   const filtered = useMemo(() => {
     const value = query.trim().toLowerCase()
     const all = (skills ?? []).filter((skill) =>
-      search.highlighted ? skill.batch === 'highlighted' : true,
+      highlightedOnly ? skill.batch === 'highlighted' : true,
     )
     if (!value) return all
     return all.filter((skill) => {
@@ -57,31 +60,33 @@ function SkillsIndex() {
       if (skill.displayName.toLowerCase().includes(value)) return true
       return (skill.summary ?? '').toLowerCase().includes(value)
     })
-  }, [query, search.highlighted, skills])
+  }, [highlightedOnly, query, skills])
 
   const sorted = useMemo(() => {
-    const dir = search.dir === 'asc' ? 1 : -1
+    const multiplier = dir === 'asc' ? 1 : -1
     const results = [...filtered]
     results.sort((a, b) => {
-      switch (search.sort) {
+      switch (sort) {
         case 'downloads':
-          return (a.stats.downloads - b.stats.downloads) * dir
+          return (a.stats.downloads - b.stats.downloads) * multiplier
+        case 'installs':
+          return ((a.stats.installsAllTime ?? 0) - (b.stats.installsAllTime ?? 0)) * multiplier
         case 'stars':
-          return (a.stats.stars - b.stats.stars) * dir
+          return (a.stats.stars - b.stats.stars) * multiplier
         case 'updated':
-          return (a.updatedAt - b.updatedAt) * dir
+          return (a.updatedAt - b.updatedAt) * multiplier
         case 'name':
           return a.displayName.localeCompare(b.displayName) || a.slug.localeCompare(b.slug)
         default:
-          return (a.createdAt - b.createdAt) * dir
+          return (a.createdAt - b.createdAt) * multiplier
       }
     })
     return results
-  }, [filtered, search.dir, search.sort])
+  }, [dir, filtered, sort])
 
   const showing = sorted.length
   const total = skills?.filter((skill) =>
-    search.highlighted ? skill.batch === 'highlighted' : true,
+    highlightedOnly ? skill.batch === 'highlighted' : true,
   ).length
 
   return (
@@ -95,7 +100,7 @@ function SkillsIndex() {
             {isLoadingSkills
               ? 'Loading skills…'
               : `${showing}${typeof total === 'number' ? ` of ${total}` : ''} skills${
-                  search.highlighted ? ' (highlighted)' : ''
+                  highlightedOnly ? ' (highlighted)' : ''
                 }.`}
           </p>
         </div>
@@ -118,14 +123,14 @@ function SkillsIndex() {
           </div>
           <div className="skills-toolbar-row">
             <button
-              className={`search-filter-button${search.highlighted ? ' is-active' : ''}`}
+              className={`search-filter-button${highlightedOnly ? ' is-active' : ''}`}
               type="button"
-              aria-pressed={search.highlighted}
+              aria-pressed={highlightedOnly}
               onClick={() => {
                 void navigate({
                   search: (prev) => ({
                     ...prev,
-                    highlighted: search.highlighted ? undefined : '1',
+                    highlighted: highlightedOnly ? undefined : true,
                   }),
                   replace: true,
                 })
@@ -135,7 +140,7 @@ function SkillsIndex() {
             </button>
             <select
               className="skills-sort"
-              value={search.sort}
+              value={sort}
               onChange={(event) => {
                 const sort = parseSort(event.target.value)
                 void navigate({
@@ -152,36 +157,40 @@ function SkillsIndex() {
               <option value="newest">Newest</option>
               <option value="updated">Recently updated</option>
               <option value="downloads">Downloads</option>
+              <option value="installs">Installs</option>
               <option value="stars">Stars</option>
               <option value="name">Name</option>
             </select>
             <button
               className="skills-dir"
               type="button"
-              aria-label={`Sort direction ${search.dir}`}
+              aria-label={`Sort direction ${dir}`}
               onClick={() => {
                 void navigate({
                   search: (prev) => ({
                     ...prev,
-                    dir: prev.dir === 'asc' ? 'desc' : 'asc',
+                    dir: parseDir(prev.dir, sort) === 'asc' ? 'desc' : 'asc',
                   }),
                   replace: true,
                 })
               }}
             >
-              {search.dir === 'asc' ? '↑' : '↓'}
+              {dir === 'asc' ? '↑' : '↓'}
             </button>
             <button
-              className={`skills-view${search.view === 'cards' ? ' is-active' : ''}`}
+              className={`skills-view${view === 'cards' ? ' is-active' : ''}`}
               type="button"
               onClick={() => {
                 void navigate({
-                  search: (prev) => ({ ...prev, view: prev.view === 'cards' ? 'list' : 'cards' }),
+                  search: (prev) => ({
+                    ...prev,
+                    view: prev.view === 'cards' ? undefined : 'cards',
+                  }),
                   replace: true,
                 })
               }}
             >
-              {search.view === 'cards' ? 'List' : 'Cards'}
+              {view === 'cards' ? 'List' : 'Cards'}
             </button>
           </div>
         </div>
@@ -193,7 +202,7 @@ function SkillsIndex() {
         </div>
       ) : showing === 0 ? (
         <div className="card">No skills match that filter.</div>
-      ) : search.view === 'cards' ? (
+      ) : view === 'cards' ? (
         <div className="grid">
           {sorted.map((skill) => (
             <SkillCard
@@ -203,7 +212,8 @@ function SkillsIndex() {
               summaryFallback="Agent-ready skill pack."
               meta={
                 <div className="stat">
-                  ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads}
+                  ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads} · ⤒{' '}
+                  {skill.stats.installsAllTime ?? 0}
                 </div>
               }
             />
@@ -228,6 +238,7 @@ function SkillsIndex() {
               </div>
               <div className="skills-row-metrics">
                 <span>⤓ {skill.stats.downloads}</span>
+                <span>⤒ {skill.stats.installsAllTime ?? 0}</span>
                 <span>★ {skill.stats.stars}</span>
                 <span>{skill.stats.versions} v</span>
               </div>

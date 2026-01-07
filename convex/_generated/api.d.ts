@@ -15,15 +15,22 @@ import type * as http from "../http.js";
 import type * as httpApi from "../httpApi.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_apiTokenAuth from "../lib/apiTokenAuth.js";
+import type * as lib_changelog from "../lib/changelog.js";
 import type * as lib_embeddings from "../lib/embeddings.js";
+import type * as lib_skillBackfill from "../lib/skillBackfill.js";
+import type * as lib_skillPublish from "../lib/skillPublish.js";
 import type * as lib_skills from "../lib/skills.js";
 import type * as lib_tokens from "../lib/tokens.js";
+import type * as lib_webhooks from "../lib/webhooks.js";
+import type * as maintenance from "../maintenance.js";
 import type * as search from "../search.js";
 import type * as skills from "../skills.js";
 import type * as stars from "../stars.js";
+import type * as telemetry from "../telemetry.js";
 import type * as tokens from "../tokens.js";
 import type * as uploads from "../uploads.js";
 import type * as users from "../users.js";
+import type * as webhooks from "../webhooks.js";
 
 import type {
   ApiFromModules,
@@ -39,15 +46,22 @@ declare const fullApi: ApiFromModules<{
   httpApi: typeof httpApi;
   "lib/access": typeof lib_access;
   "lib/apiTokenAuth": typeof lib_apiTokenAuth;
+  "lib/changelog": typeof lib_changelog;
   "lib/embeddings": typeof lib_embeddings;
+  "lib/skillBackfill": typeof lib_skillBackfill;
+  "lib/skillPublish": typeof lib_skillPublish;
   "lib/skills": typeof lib_skills;
   "lib/tokens": typeof lib_tokens;
+  "lib/webhooks": typeof lib_webhooks;
+  maintenance: typeof maintenance;
   search: typeof search;
   skills: typeof skills;
   stars: typeof stars;
+  telemetry: typeof telemetry;
   tokens: typeof tokens;
   uploads: typeof uploads;
   users: typeof users;
+  webhooks: typeof webhooks;
 }>;
 
 /**

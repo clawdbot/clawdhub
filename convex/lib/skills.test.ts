@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildEmbeddingText,
+  getFrontmatterMetadata,
+  getFrontmatterValue,
   hashSkillFiles,
   isTextFile,
   parseClawdisMetadata,
@@ -26,6 +28,29 @@ describe('skills utils', () => {
     expect(frontmatter.description).toBe('Hello')
   })
 
+  it('parses block scalars in frontmatter', () => {
+    const folded = parseFrontmatter(
+      `---\nname: demo\ndescription: >\n  Hello\n  world.\n\n  Next paragraph.\n---\nBody`,
+    )
+    expect(folded.description).toBe('Hello world.\nNext paragraph.')
+
+    const literal = parseFrontmatter(
+      `---\nname: demo\ndescription: |\n  Hello\n  world.\n---\nBody`,
+    )
+    expect(literal.description).toBe('Hello\nworld.')
+  })
+
+  it('keeps structured YAML values in frontmatter', () => {
+    const frontmatter = parseFrontmatter(
+      `---\nname: demo\ncount: 3\nnums: [1, 2]\nobj:\n  a: b\n---\nBody`,
+    )
+    expect(frontmatter.nums).toEqual([1, 2])
+    expect(frontmatter.obj).toEqual({ a: 'b' })
+    expect(frontmatter.name).toBe('demo')
+    expect(frontmatter.count).toBe(3)
+    expect(getFrontmatterValue(frontmatter, 'count')).toBeUndefined()
+  })
+
   it('parses clawdis metadata', () => {
     const frontmatter = parseFrontmatter(
       `---\nmetadata: {"clawdis":{"requires":{"bins":["rg"]},"emoji":"🦞"}}\n---\nBody`,
@@ -38,6 +63,38 @@ describe('skills utils', () => {
   it('ignores invalid clawdis metadata', () => {
     const frontmatter = parseFrontmatter(`---\nmetadata: not-json\n---\nBody`)
     expect(parseClawdisMetadata(frontmatter)).toBeUndefined()
+  })
+
+  it('accepts metadata as YAML object (no JSON string)', () => {
+    const frontmatter = parseFrontmatter(
+      `---\nmetadata:\n  clawdis:\n    emoji: "🦞"\n    requires:\n      bins:\n        - rg\n---\nBody`,
+    )
+    expect(getFrontmatterMetadata(frontmatter)).toEqual({
+      clawdis: { emoji: '🦞', requires: { bins: ['rg'] } },
+    })
+    const clawdis = parseClawdisMetadata(frontmatter)
+    expect(clawdis?.emoji).toBe('🦞')
+    expect(clawdis?.requires?.bins).toEqual(['rg'])
+  })
+
+  it('accepts clawdis as top-level YAML key', () => {
+    const frontmatter = parseFrontmatter(
+      `---\nclawdis:\n  emoji: "🦞"\n  requires:\n    anyBins: [rg, fd]\n---\nBody`,
+    )
+    const clawdis = parseClawdisMetadata(frontmatter)
+    expect(clawdis?.emoji).toBe('🦞')
+    expect(clawdis?.requires?.anyBins).toEqual(['rg', 'fd'])
+  })
+
+  it('accepts legacy metadata JSON string (quoted)', () => {
+    const frontmatter = parseFrontmatter(
+      `---\nmetadata: '{"clawdis":{"emoji":"🦞","requires":{"bins":["rg"]}}}'\n---\nBody`,
+    )
+    const metadata = getFrontmatterMetadata(frontmatter)
+    expect(metadata).toEqual({ clawdis: { emoji: '🦞', requires: { bins: ['rg'] } } })
+    const clawdis = parseClawdisMetadata(frontmatter)
+    expect(clawdis?.emoji).toBe('🦞')
+    expect(clawdis?.requires?.bins).toEqual(['rg'])
   })
 
   it('parses clawdis install specs and os', () => {

@@ -27,7 +27,9 @@ export async function getRegistry(opts: GlobalOpts, params?: { cache?: boolean }
   const cfg = await readGlobalConfig()
   const cached = cfg?.registry?.trim()
   const shouldUpdate =
-    !cached || isLegacyRegistry(cached) || (cached === DEFAULT_REGISTRY && registry !== DEFAULT_REGISTRY)
+    !cached ||
+    isLegacyRegistry(cached) ||
+    (cached === DEFAULT_REGISTRY && registry !== DEFAULT_REGISTRY)
   if (shouldUpdate) await writeGlobalConfig({ registry, token: cfg?.token })
   return registry
 }

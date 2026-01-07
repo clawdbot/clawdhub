@@ -66,7 +66,7 @@ describe('expandFiles', () => {
       'SKILL.md': strToU8('hello'),
       'docs/readme.txt': strToU8('doc'),
     })
-    const zipFile = new File([zip.buffer], 'pack.zip', { type: 'application/zip' })
+    const zipFile = new File([Uint8Array.from(zip).buffer], 'pack.zip', { type: 'application/zip' })
     const result = await expandFiles([zipFile])
     expect(result.map((file) => file.name)).toEqual(['SKILL.md', 'docs/readme.txt'])
   })
@@ -79,7 +79,7 @@ describe('expandFiles', () => {
       'hetzner-cloud-skill/.DS_Store': strToU8('junk2'),
       'hetzner-cloud-skill/screenshot.png': strToU8('not-really-a-png'),
     })
-    const zipFile = new File([zip.buffer], 'pack.zip', { type: 'application/zip' })
+    const zipFile = new File([Uint8Array.from(zip).buffer], 'pack.zip', { type: 'application/zip' })
     const result = await expandFiles([zipFile])
     expect(result.map((file) => file.name)).toEqual(['SKILL.md', 'docs/readme.txt'])
     const png = result.find((file) => file.name.endsWith('.png'))
@@ -92,7 +92,9 @@ describe('expandFiles', () => {
       { name: 'notes.txt', content: 'yo' },
     ])
     const tgz = gzipSync(tar)
-    const tgzFile = new File([tgz.buffer], 'bundle.tgz', { type: 'application/gzip' })
+    const tgzFile = new File([Uint8Array.from(tgz).buffer], 'bundle.tgz', {
+      type: 'application/gzip',
+    })
     const result = await expandFiles([tgzFile])
     expect(result.map((file) => file.name)).toEqual(['SKILL.md', 'notes.txt'])
   })
@@ -103,14 +105,18 @@ describe('expandFiles', () => {
       { name: 'skill-folder/notes.txt', content: 'yo' },
     ])
     const tgz = gzipSync(tar)
-    const tgzFile = new File([tgz.buffer], 'bundle.tgz', { type: 'application/gzip' })
+    const tgzFile = new File([Uint8Array.from(tgz).buffer], 'bundle.tgz', {
+      type: 'application/gzip',
+    })
     const result = await expandFiles([tgzFile])
     expect(result.map((file) => file.name)).toEqual(['SKILL.md', 'notes.txt'])
   })
 
   it('expands .gz single files', async () => {
     const gz = gzipSync(strToU8('content'))
-    const gzFile = new File([gz.buffer], 'skill.md.gz', { type: 'application/gzip' })
+    const gzFile = new File([Uint8Array.from(gz).buffer], 'skill.md.gz', {
+      type: 'application/gzip',
+    })
     const result = await expandFiles([gzFile])
     expect(result.map((file) => file.name)).toEqual(['skill.md'])
   })

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import { useAction, useQuery } from 'convex/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -8,14 +8,14 @@ import { SkillCard } from '../components/SkillCard'
 
 export const Route = createFileRoute('/')({
   validateSearch: (search) => ({
-    q: typeof search.q === 'string' ? search.q : '',
-    highlighted: search.highlighted === '1' || search.highlighted === 'true',
+    q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
+    highlighted: search.highlighted === '1' || search.highlighted === 'true' ? true : undefined,
   }),
   component: Home,
 })
 
 function Home() {
-  const navigate = useNavigate()
+  const navigate = Route.useNavigate()
   const search = Route.useSearch()
   const searchSkills = useAction(api.search.searchSkills)
   const highlighted =
@@ -43,10 +43,9 @@ function Home() {
 
   useEffect(() => {
     void navigate({
-      search: (prev) => ({
-        ...prev,
+      search: () => ({
         q: trimmedQuery || undefined,
-        highlighted: highlightedOnly ? '1' : undefined,
+        highlighted: highlightedOnly ? true : undefined,
       }),
       replace: true,
     })
@@ -97,7 +96,7 @@ function Home() {
               <Link to="/upload" className="btn btn-primary">
                 Publish a skill
               </Link>
-              <Link to="/search" className="btn">
+              <Link to="/search" search={{ q: undefined, highlighted: undefined }} className="btn">
                 Explore search
               </Link>
             </div>
@@ -199,7 +198,8 @@ function Home() {
                     summaryFallback="A fresh skill bundle."
                     meta={
                       <div className="stat">
-                        ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads}
+                        ⭐ {skill.stats.stars} · ⤓ {skill.stats.downloads} · ⤒{' '}
+                        {skill.stats.installsAllTime ?? 0}
                       </div>
                     }
                   />
@@ -222,7 +222,8 @@ function Home() {
                     summaryFallback="Agent-ready skill pack."
                     meta={
                       <div className="stat">
-                        {skill.stats.versions} versions · {skill.stats.downloads} downloads
+                        {skill.stats.versions} versions · ⤓ {skill.stats.downloads} · ⤒{' '}
+                        {skill.stats.installsAllTime ?? 0}
                       </div>
                     }
                   />
@@ -230,7 +231,17 @@ function Home() {
               )}
             </div>
             <div className="section-cta">
-              <Link to="/skills" className="btn">
+              <Link
+                to="/skills"
+                search={{
+                  q: undefined,
+                  sort: undefined,
+                  dir: undefined,
+                  highlighted: undefined,
+                  view: undefined,
+                }}
+                className="btn"
+              >
                 See all skills
               </Link>
             </div>

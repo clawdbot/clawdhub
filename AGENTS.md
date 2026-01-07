@@ -38,3 +38,7 @@
 - Local env: `.env.local` (never commit secrets).
 - Convex env holds JWT keys; Vercel only needs `VITE_CONVEX_URL` + `VITE_CONVEX_SITE_URL`.
 - OAuth: GitHub OAuth App credentials required for login.
+
+## Convex Ops (Gotchas)
+- New Convex functions must be pushed before `convex run`: use `bunx convex dev --once` (dev) or `bunx convex deploy --prod` (prod).
+- If `bunx convex run --env-file .env.local ...` returns `401 MissingAccessToken` despite `bunx convex login`, workaround: omit `--env-file` and use `--deployment-name <name>` / `--prod`.

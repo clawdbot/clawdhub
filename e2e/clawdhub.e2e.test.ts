@@ -79,7 +79,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -119,7 +119,7 @@ describe('clawdhub e2e', () => {
         ['clawdhub', 'whoami', '--site', site, '--registry', registry],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -161,7 +161,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -215,7 +215,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -245,7 +245,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -279,7 +279,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -290,7 +290,7 @@ describe('clawdhub e2e', () => {
         ['clawdhub', 'list', '--site', site, '--registry', registry, '--workdir', installWorkdir],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -313,7 +313,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -340,7 +340,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -370,7 +370,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )
@@ -397,7 +397,7 @@ describe('clawdhub e2e', () => {
         ],
         {
           cwd: process.cwd(),
-          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path },
+          env: { ...process.env, CLAWDHUB_CONFIG_PATH: cfg.path, CLAWDHUB_DISABLE_TELEMETRY: '1' },
           encoding: 'utf8',
         },
       )

@@ -1,21 +1,49 @@
 # Changelog
 
+## 0.0.5 - 2026-01-06
+
+### Added
+- Telemetry: track installs via `clawdhub sync` (logged-in only), per root, with 120-day staleness.
+- Skills: show current + all-time installs; sort by installs.
+- Profile: private "Installed" tab with JSON export + delete telemetry controls.
+- Docs: add `docs/telemetry.md` (what we track + how to opt out).
+- Web: custom Open Graph image (`/og.png`) + richer OG/Twitter tags.
+
+### Changed
+- CLI: telemetry opt-out via `CLAWDHUB_DISABLE_TELEMETRY=1`.
+- Web: move theme picker into mobile menu.
+
+### Fixed
+- Web: handle shorthand hex colors in diff theme (thanks @dbhurley!).
+
+## 0.0.5 - 2026-01-06
+
+### Added
+- Maintenance: admin backfill to re-parse `SKILL.md` and repair stored summaries/parsed metadata.
+
+### Fixed
+- CLI sync: ignore plural `skills.md` docs files when scanning for skills.
+- Registry: parse YAML frontmatter (incl multiline `description`) and accept YAML `metadata` objects.
+
 ## 0.0.4 - 2026-01-05
 
 ### Added
 - Web: `/skills` list view with sorting (newest/downloads/stars/name) + quick filter.
 - Web: admin/moderator highlight toggle on skill detail.
 - Web: canonical skill URLs as `/<owner>/<slug>` (legacy `/skills/<slug>` redirects).
+- Web: upload auto-generates a changelog via OpenAI when left blank (marked as auto-generated).
 
 ### Fixed
 - Web: skill detail shows a loading state instead of flashing "Skill not found".
 - Web: user profile shows avatar + loading state (no "User not found" flash).
+- Web: improved mobile responsiveness (nav menu, skill detail layout, install command overflow).
 - Web: upload now unwraps folder picks so `SKILL.md` can be at the bundle root.
 - Registry: cap embedding payload size to avoid model context errors.
 - CLI: ignore legacy `auth.clawdhub.com` registry and prefer site discovery.
 
 ### Changed
 - Web: homepage search now expands into full search mode with live results + highlighted toggle.
+- CLI: sync no longer prompts for changelog; registry auto-generates when blank.
 
 ## 0.0.3 - 2026-01-04
 

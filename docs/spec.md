@@ -61,6 +61,7 @@ From SKILL.md frontmatter + AgentSkills + Clawdis extensions:
 - `name`, `description`, `homepage`, `website`, `url`, `emoji`
 - `metadata.clawdis`: `always`, `skillKey`, `primaryEnv`, `emoji`, `homepage`, `os`,
   `requires` (`bins`, `anyBins`, `env`, `config`), `install[]`
+  - `metadata` in frontmatter is YAML (object) preferred; legacy JSON-string accepted.
 
 ### Comment
 - `skillId`, `userId`, `body`

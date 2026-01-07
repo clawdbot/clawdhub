@@ -1,21 +1,17 @@
 import {
   ApiCliSkillDeleteResponseSchema,
+  ApiCliTelemetrySyncResponseSchema,
   CliPublishRequestSchema,
   CliSkillDeleteRequestSchema,
+  CliTelemetrySyncRequestSchema,
   parseArk,
 } from 'clawdhub-schema'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import type { ActionCtx } from './_generated/server'
 import { httpAction } from './_generated/server'
 import { requireApiTokenUser } from './lib/apiTokenAuth'
-import { hashSkillFiles } from './lib/skills'
 import { publishVersionForUser } from './skills'
-
-type HttpCtx = {
-  runAction: (fn: unknown, args: unknown) => Promise<unknown>
-  runQuery: (fn: unknown, args: unknown) => Promise<unknown>
-  runMutation: (fn: unknown, args: unknown) => Promise<unknown>
-}
 
 type SearchSkillEntry = {
   score: number
@@ -43,7 +39,7 @@ type GetBySlugResult = {
   owner: { handle?: string; displayName?: string; image?: string } | null
 } | null
 
-async function searchSkillsHandler(ctx: HttpCtx, request: Request) {
+async function searchSkillsHandler(ctx: ActionCtx, request: Request) {
   const url = new URL(request.url)
   const query = url.searchParams.get('q')?.trim() ?? ''
   const limit = toOptionalNumber(url.searchParams.get('limit'))
@@ -71,7 +67,7 @@ async function searchSkillsHandler(ctx: HttpCtx, request: Request) {
 
 export const searchSkillsHttp = httpAction(searchSkillsHandler)
 
-async function getSkillHandler(ctx: HttpCtx, request: Request) {
+async function getSkillHandler(ctx: ActionCtx, request: Request) {
   const url = new URL(request.url)
   const slug = url.searchParams.get('slug')?.trim().toLowerCase()
   if (!slug) return text('Missing slug', 400)
@@ -108,39 +104,22 @@ async function getSkillHandler(ctx: HttpCtx, request: Request) {
 
 export const getSkillHttp = httpAction(getSkillHandler)
 
-async function resolveSkillVersionHandler(ctx: HttpCtx, request: Request) {
+async function resolveSkillVersionHandler(ctx: ActionCtx, request: Request) {
   const url = new URL(request.url)
   const slug = url.searchParams.get('slug')?.trim().toLowerCase()
   const hash = url.searchParams.get('hash')?.trim().toLowerCase()
   if (!slug || !hash) return text('Missing slug or hash', 400)
   if (!/^[a-f0-9]{64}$/.test(hash)) return text('Invalid hash', 400)
 
-  const result = (await ctx.runQuery(api.skills.getBySlug, { slug })) as GetBySlugResult
-  if (!result?.skill) return text('Skill not found', 404)
+  const resolved = await ctx.runQuery(api.skills.resolveVersionByHash, { slug, hash })
+  if (!resolved) return text('Skill not found', 404)
 
-  const versions = (await ctx.runQuery(api.skills.listVersions, {
-    skillId: result.skill._id,
-    limit: 200,
-  })) as Array<{ version: string; files: Array<{ path: string; sha256: string }> }>
-  let match: { version: string } | null = null
-  for (const version of versions) {
-    const fingerprint = await hashSkillFiles(version.files)
-    if (fingerprint === hash) {
-      match = { version: version.version }
-      break
-    }
-  }
-
-  return json({
-    slug,
-    match,
-    latestVersion: result.latestVersion ? { version: result.latestVersion.version } : null,
-  })
+  return json({ slug, match: resolved.match, latestVersion: resolved.latestVersion })
 }
 
 export const resolveSkillVersionHttp = httpAction(resolveSkillVersionHandler)
 
-async function cliWhoamiHandler(ctx: HttpCtx, request: Request) {
+async function cliWhoamiHandler(ctx: ActionCtx, request: Request) {
   try {
     const { user } = await requireApiTokenUser(ctx, request)
     return json({
@@ -157,7 +136,7 @@ async function cliWhoamiHandler(ctx: HttpCtx, request: Request) {
 
 export const cliWhoamiHttp = httpAction(cliWhoamiHandler)
 
-async function cliUploadUrlHandler(ctx: HttpCtx, request: Request) {
+async function cliUploadUrlHandler(ctx: ActionCtx, request: Request) {
   try {
     const { userId } = await requireApiTokenUser(ctx, request)
     const uploadUrl = await ctx.runMutation(internal.uploads.generateUploadUrlForUserInternal, {
@@ -171,7 +150,7 @@ async function cliUploadUrlHandler(ctx: HttpCtx, request: Request) {
 
 export const cliUploadUrlHttp = httpAction(cliUploadUrlHandler)
 
-async function cliPublishHandler(ctx: HttpCtx, request: Request) {
+async function cliPublishHandler(ctx: ActionCtx, request: Request) {
   let body: unknown
   try {
     body = await request.json()
@@ -193,7 +172,7 @@ async function cliPublishHandler(ctx: HttpCtx, request: Request) {
 
 export const cliPublishHttp = httpAction(cliPublishHandler)
 
-async function cliSkillDeleteHandler(ctx: HttpCtx, request: Request, deleted: boolean) {
+async function cliSkillDeleteHandler(ctx: ActionCtx, request: Request, deleted: boolean) {
   let body: unknown
   try {
     body = await request.json()
@@ -224,6 +203,39 @@ export const cliSkillDeleteHttp = httpAction((ctx, request) =>
 export const cliSkillUndeleteHttp = httpAction((ctx, request) =>
   cliSkillDeleteHandler(ctx, request, false),
 )
+
+async function cliTelemetrySyncHandler(ctx: ActionCtx, request: Request) {
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return text('Invalid JSON', 400)
+  }
+
+  try {
+    const { userId } = await requireApiTokenUser(ctx, request)
+    const args = parseArk(CliTelemetrySyncRequestSchema, body, 'Telemetry payload')
+    await ctx.runMutation(internal.telemetry.reportCliSyncInternal, {
+      userId,
+      roots: args.roots.map((root) => ({
+        rootId: root.rootId,
+        label: root.label,
+        skills: root.skills.map((skill) => ({
+          slug: skill.slug,
+          version: skill.version ?? undefined,
+        })),
+      })),
+    })
+    const ok = parseArk(ApiCliTelemetrySyncResponseSchema, { ok: true }, 'Telemetry response')
+    return json(ok)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Telemetry failed'
+    if (message.toLowerCase().includes('unauthorized')) return text('Unauthorized', 401)
+    return text(message, 400)
+  }
+}
+
+export const cliTelemetrySyncHttp = httpAction(cliTelemetrySyncHandler)
 
 function json(value: unknown, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -261,6 +273,12 @@ function parsePublishBody(body: unknown) {
     version: parsed.version,
     changelog: parsed.changelog,
     tags,
+    forkOf: parsed.forkOf
+      ? {
+          slug: parsed.forkOf.slug,
+          version: parsed.forkOf.version ?? undefined,
+        }
+      : undefined,
     files: parsed.files.map((file) => ({
       ...file,
       storageId: file.storageId as Id<'_storage'>,
@@ -281,4 +299,5 @@ export const __handlers = {
   cliUploadUrlHandler,
   cliPublishHandler,
   cliSkillDeleteHandler,
+  cliTelemetrySyncHandler,
 }

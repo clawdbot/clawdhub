@@ -6,6 +6,7 @@ import {
   cliPublishHttp,
   cliSkillDeleteHttp,
   cliSkillUndeleteHttp,
+  cliTelemetrySyncHttp,
   cliUploadUrlHttp,
   cliWhoamiHttp,
   getSkillHttp,
@@ -57,6 +58,12 @@ http.route({
   path: ApiRoutes.cliPublish,
   method: 'POST',
   handler: cliPublishHttp,
+})
+
+http.route({
+  path: ApiRoutes.cliTelemetrySync,
+  method: 'POST',
+  handler: cliTelemetrySyncHttp,
 })
 
 http.route({

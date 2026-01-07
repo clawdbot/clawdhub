@@ -25,6 +25,17 @@ Live: `https://clawdhub.com`
 - Search: OpenAI embeddings (`text-embedding-3-small`) + Convex vector search.
 - API schema + routes: `packages/schema` (`clawdhub-schema`).
 
+## Telemetry
+
+ClawdHub tracks minimal **install telemetry** (to compute install counts) when you run `clawdhub sync` while logged in.
+Disable via:
+
+```bash
+export CLAWDHUB_DISABLE_TELEMETRY=1
+```
+
+Details: `docs/telemetry.md`.
+
 ## Repo layout
 
 - `src/` — TanStack Start app (routes, components, styles).

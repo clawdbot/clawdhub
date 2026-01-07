@@ -20,7 +20,14 @@ import { createSpinner, fail, formatError } from '../ui.js'
 export async function cmdPublish(
   opts: GlobalOpts,
   folderArg: string,
-  options: { slug?: string; name?: string; version?: string; changelog?: string; tags?: string },
+  options: {
+    slug?: string
+    name?: string
+    version?: string
+    changelog?: string
+    tags?: string
+    forkOf?: string
+  },
 ) {
   const folder = folderArg ? resolve(opts.workdir, folderArg) : null
   if (!folder) fail('Path required')
@@ -41,6 +48,9 @@ export async function cmdPublish(
     .split(',')
     .map((tag) => tag.trim())
     .filter(Boolean)
+
+  const forkOfRaw = options.forkOf?.trim()
+  const forkOf = forkOfRaw ? parseForkOf(forkOfRaw) : undefined
 
   if (!slug) fail('--slug required')
   if (!displayName) fail('--name required')
@@ -89,11 +99,16 @@ export async function cmdPublish(
     }
 
     spinner.text = `Publishing ${slug}@${version}`
-    const body = parseArk(
-      CliPublishRequestSchema,
-      { slug, displayName, version, changelog, tags, files: uploaded },
-      'Publish payload',
-    )
+    const publishPayload = {
+      slug,
+      displayName,
+      version,
+      changelog,
+      tags,
+      files: uploaded,
+      ...(forkOf ? { forkOf } : {}),
+    }
+    const body = parseArk(CliPublishRequestSchema, publishPayload, 'Publish payload')
     const result = await apiRequest(
       registry,
       { method: 'POST', path: ApiRoutes.cliPublish, token, body },
@@ -105,6 +120,16 @@ export async function cmdPublish(
     spinner.fail(formatError(error))
     throw error
   }
+}
+
+function parseForkOf(value: string) {
+  const trimmed = value.trim()
+  const [slugRaw, versionRaw] = trimmed.split('@')
+  const slug = (slugRaw ?? '').trim().toLowerCase()
+  if (!slug) fail('--fork-of must be <slug> or <slug@version>')
+  const version = (versionRaw ?? '').trim()
+  if (version && !semver.valid(version)) fail('--fork-of version must be valid semver')
+  return { slug, version: version || undefined }
 }
 
 async function uploadFile(uploadUrl: string, bytes: Uint8Array, contentType: string) {

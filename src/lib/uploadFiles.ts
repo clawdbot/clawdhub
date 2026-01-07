@@ -38,7 +38,7 @@ export async function expandFiles(selected: File[]) {
     if (lower.endsWith('.gz')) {
       const unpacked = gunzipSync(new Uint8Array(await readArrayBuffer(file)))
       const name = file.name.replace(/\.gz$/i, '')
-      expanded.push(new File([unpacked], name, { type: guessContentType(name) }))
+      expanded.push(new File([toArrayBuffer(unpacked)], name, { type: guessContentType(name) }))
       continue
     }
     expanded.push(file)
@@ -57,11 +57,19 @@ function pushArchiveEntries(target: File[], entries: Array<{ path: string; data:
 
   for (const entry of unwrapped) {
     target.push(
-      new File([entry.data], entry.path, {
+      new File([toArrayBuffer(entry.data)], entry.path, {
         type: guessContentType(entry.path),
       }),
     )
   }
+}
+
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = bytes.buffer
+  if (buffer instanceof ArrayBuffer) {
+    return buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+  }
+  return Uint8Array.from(bytes).buffer
 }
 
 async function readArrayBuffer(file: Blob) {

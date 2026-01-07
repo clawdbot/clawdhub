@@ -1,45 +1,24 @@
 import { ConvexError, v } from 'convex/values'
-import semver from 'semver'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
-import type { ActionCtx } from './_generated/server'
+import type { MutationCtx } from './_generated/server'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { assertRole, requireUser, requireUserFromAction } from './lib/access'
-import { generateEmbedding } from './lib/embeddings'
+import { generateChangelogPreview as buildChangelogPreview } from './lib/changelog'
 import {
-  buildEmbeddingText,
-  getFrontmatterValue,
-  isTextFile,
-  parseClawdisMetadata,
-  parseFrontmatter,
-  sanitizePath,
-} from './lib/skills'
+  fetchText,
+  type PublishResult,
+  publishVersionForUser,
+  queueHighlightedWebhook,
+} from './lib/skillPublish'
+import { getFrontmatterValue, hashSkillFiles } from './lib/skills'
 
-const MAX_TOTAL_BYTES = 50 * 1024 * 1024
-const MAX_FILES_FOR_EMBEDDING = 40
-
-type PublishResult = {
-  skillId: Id<'skills'>
-  versionId: Id<'skillVersions'>
-  embeddingId: Id<'skillEmbeddings'>
-}
-
-type PublishVersionArgs = {
-  slug: string
-  displayName: string
-  version: string
-  changelog: string
-  tags?: string[]
-  files: Array<{
-    path: string
-    size: number
-    storageId: Id<'_storage'>
-    sha256: string
-    contentType?: string
-  }>
-}
+export { publishVersionForUser } from './lib/skillPublish'
 
 type ReadmeResult = { path: string; text: string }
+type FileTextResult = { path: string; text: string; size: number; sha256: string }
+
+const MAX_DIFF_FILE_BYTES = 200 * 1024
 
 export const getBySlug = query({
   args: { slug: v.string() },
@@ -51,7 +30,42 @@ export const getBySlug = query({
     if (!skill || skill.softDeletedAt) return null
     const latestVersion = skill.latestVersionId ? await ctx.db.get(skill.latestVersionId) : null
     const owner = await ctx.db.get(skill.ownerUserId)
-    return { skill, latestVersion, owner }
+
+    const forkOfSkill = skill.forkOf?.skillId ? await ctx.db.get(skill.forkOf.skillId) : null
+    const forkOfOwner = forkOfSkill ? await ctx.db.get(forkOfSkill.ownerUserId) : null
+
+    const canonicalSkill = skill.canonicalSkillId ? await ctx.db.get(skill.canonicalSkillId) : null
+    const canonicalOwner = canonicalSkill ? await ctx.db.get(canonicalSkill.ownerUserId) : null
+
+    return {
+      skill,
+      latestVersion,
+      owner,
+      forkOf: forkOfSkill
+        ? {
+            kind: skill.forkOf?.kind ?? 'fork',
+            version: skill.forkOf?.version ?? null,
+            skill: {
+              slug: forkOfSkill.slug,
+              displayName: forkOfSkill.displayName,
+            },
+            owner: {
+              handle: forkOfOwner?.handle ?? forkOfOwner?.name ?? null,
+            },
+          }
+        : null,
+      canonical: canonicalSkill
+        ? {
+            skill: {
+              slug: canonicalSkill.slug,
+              displayName: canonicalSkill.displayName,
+            },
+            owner: {
+              handle: canonicalOwner?.handle ?? canonicalOwner?.name ?? null,
+            },
+          }
+        : null,
+    }
   },
 })
 
@@ -139,6 +153,12 @@ export const publishVersion: ReturnType<typeof action> = action({
     version: v.string(),
     changelog: v.string(),
     tags: v.optional(v.array(v.string())),
+    forkOf: v.optional(
+      v.object({
+        slug: v.string(),
+        version: v.optional(v.string()),
+      }),
+    ),
     files: v.array(
       v.object({
         path: v.string(),
@@ -155,91 +175,24 @@ export const publishVersion: ReturnType<typeof action> = action({
   },
 })
 
-export async function publishVersionForUser(
-  ctx: ActionCtx,
-  userId: Id<'users'>,
-  args: PublishVersionArgs,
-): Promise<PublishResult> {
-  const version = args.version.trim()
-  const slug = args.slug.trim().toLowerCase()
-  const displayName = args.displayName.trim()
-  if (!slug || !displayName) throw new ConvexError('Slug and display name required')
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
-    throw new ConvexError('Slug must be lowercase and url-safe')
-  }
-  if (!semver.valid(version)) {
-    throw new ConvexError('Version must be valid semver')
-  }
-  const changelogText = args.changelog.trim()
-
-  const sanitizedFiles = args.files.map((file) => ({
-    ...file,
-    path: sanitizePath(file.path),
-  }))
-  if (sanitizedFiles.some((file) => !file.path)) {
-    throw new ConvexError('Invalid file paths')
-  }
-  if (sanitizedFiles.some((file) => !isTextFile(file.path ?? '', file.contentType ?? undefined))) {
-    throw new ConvexError('Only text-based files are allowed')
-  }
-
-  const totalBytes = sanitizedFiles.reduce((sum, file) => sum + file.size, 0)
-  if (totalBytes > MAX_TOTAL_BYTES) {
-    throw new ConvexError('Skill bundle exceeds 50MB limit')
-  }
-
-  const readmeFile = sanitizedFiles.find(
-    (file) => file.path?.toLowerCase() === 'skill.md' || file.path?.toLowerCase() === 'skills.md',
-  )
-  if (!readmeFile) throw new ConvexError('SKILL.md is required')
-
-  const readmeText = await fetchText(ctx, readmeFile.storageId)
-  const frontmatter = parseFrontmatter(readmeText)
-  const clawdis = parseClawdisMetadata(frontmatter)
-  const metadataRaw = getFrontmatterValue(frontmatter, 'metadata')
-  const metadata = metadataRaw ? safeJson(metadataRaw) : undefined
-
-  const otherFiles = [] as Array<{ path: string; content: string }>
-  for (const file of sanitizedFiles) {
-    if (!file.path || file.path.toLowerCase().endsWith('.md')) continue
-    if (!isTextFile(file.path, file.contentType ?? undefined)) continue
-    const content = await fetchText(ctx, file.storageId)
-    otherFiles.push({ path: file.path, content })
-    if (otherFiles.length >= MAX_FILES_FOR_EMBEDDING) break
-  }
-
-  const embeddingText = buildEmbeddingText({
-    frontmatter,
-    readme: readmeText,
-    otherFiles,
-  })
-
-  let embedding: number[]
-  try {
-    embedding = await generateEmbedding(embeddingText)
-  } catch (error) {
-    throw new ConvexError(formatEmbeddingError(error))
-  }
-
-  return ctx.runMutation(internal.skills.insertVersion, {
-    userId,
-    slug,
-    displayName,
-    version,
-    changelog: changelogText,
-    tags: args.tags?.map((tag) => tag.trim()).filter(Boolean),
-    files: sanitizedFiles.map((file) => ({
-      ...file,
-      path: file.path ?? '',
-    })),
-    parsed: {
-      frontmatter,
-      metadata,
-      clawdis,
-    },
-    embedding,
-  })
-}
+export const generateChangelogPreview = action({
+  args: {
+    slug: v.string(),
+    version: v.string(),
+    readmeText: v.string(),
+    filePaths: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    await requireUserFromAction(ctx)
+    const changelog = await buildChangelogPreview(ctx, {
+      slug: args.slug.trim().toLowerCase(),
+      version: args.version.trim(),
+      readmeText: args.readmeText,
+      filePaths: args.filePaths?.map((value) => value.trim()).filter(Boolean),
+    })
+    return { changelog, source: 'auto' as const }
+  },
+})
 
 export const getReadme: ReturnType<typeof action> = action({
   args: { versionId: v.id('skillVersions') },
@@ -257,17 +210,91 @@ export const getReadme: ReturnType<typeof action> = action({
   },
 })
 
-function formatEmbeddingError(error: unknown) {
-  if (error instanceof Error) {
-    if (error.message.includes('OPENAI_API_KEY')) {
-      return 'OPENAI_API_KEY is not configured.'
+export const getFileText: ReturnType<typeof action> = action({
+  args: { versionId: v.id('skillVersions'), path: v.string() },
+  handler: async (ctx, args): Promise<FileTextResult> => {
+    const version = (await ctx.runQuery(internal.skills.getVersionByIdInternal, {
+      versionId: args.versionId,
+    })) as Doc<'skillVersions'> | null
+    if (!version) throw new ConvexError('Version not found')
+
+    const normalizedPath = args.path.trim()
+    const normalizedLower = normalizedPath.toLowerCase()
+    const file =
+      version.files.find((entry) => entry.path === normalizedPath) ??
+      version.files.find((entry) => entry.path.toLowerCase() === normalizedLower)
+    if (!file) throw new ConvexError('File not found')
+    if (file.size > MAX_DIFF_FILE_BYTES) {
+      throw new ConvexError('File exceeds 200KB limit')
     }
-    if (error.message.startsWith('Embedding failed')) {
-      return error.message
+
+    const text = await fetchText(ctx, file.storageId)
+    return { path: file.path, text, size: file.size, sha256: file.sha256 }
+  },
+})
+
+export const resolveVersionByHash = query({
+  args: { slug: v.string(), hash: v.string() },
+  handler: async (ctx, args) => {
+    const slug = args.slug.trim().toLowerCase()
+    const hash = args.hash.trim().toLowerCase()
+    if (!slug || !/^[a-f0-9]{64}$/.test(hash)) return null
+
+    const skill = await ctx.db
+      .query('skills')
+      .withIndex('by_slug', (q) => q.eq('slug', slug))
+      .unique()
+    if (!skill || skill.softDeletedAt) return null
+
+    const latestVersion = skill.latestVersionId ? await ctx.db.get(skill.latestVersionId) : null
+
+    const fingerprintMatches = await ctx.db
+      .query('skillVersionFingerprints')
+      .withIndex('by_skill_fingerprint', (q) => q.eq('skillId', skill._id).eq('fingerprint', hash))
+      .take(25)
+
+    let match: { version: string } | null = null
+    if (fingerprintMatches.length > 0) {
+      const newest = fingerprintMatches.reduce(
+        (best, entry) => (entry.createdAt > best.createdAt ? entry : best),
+        fingerprintMatches[0] as (typeof fingerprintMatches)[number],
+      )
+      const version = await ctx.db.get(newest.versionId)
+      if (version && !version.softDeletedAt) {
+        match = { version: version.version }
+      }
     }
-  }
-  return 'Embedding failed. Please try again.'
-}
+
+    if (!match) {
+      const versions = await ctx.db
+        .query('skillVersions')
+        .withIndex('by_skill', (q) => q.eq('skillId', skill._id))
+        .order('desc')
+        .take(200)
+
+      for (const version of versions) {
+        if (version.softDeletedAt) continue
+        if (typeof version.fingerprint === 'string' && version.fingerprint === hash) {
+          match = { version: version.version }
+          break
+        }
+
+        const fingerprint = await hashSkillFiles(
+          version.files.map((file) => ({ path: file.path, sha256: file.sha256 })),
+        )
+        if (fingerprint === hash) {
+          match = { version: version.version }
+          break
+        }
+      }
+    }
+
+    return {
+      match,
+      latestVersion: latestVersion ? { version: latestVersion.version } : null,
+    }
+  },
+})
 
 export const updateTags = mutation({
   args: {
@@ -357,8 +384,10 @@ export const setBatch = mutation({
     assertRole(user, ['admin', 'moderator'])
     const skill = await ctx.db.get(args.skillId)
     if (!skill) throw new Error('Skill not found')
+    const previousBatch = skill.batch ?? undefined
+    const nextBatch = args.batch?.trim() || undefined
     await ctx.db.patch(skill._id, {
-      batch: args.batch?.trim() || undefined,
+      batch: nextBatch,
       updatedAt: Date.now(),
     })
     await ctx.db.insert('auditLogs', {
@@ -369,6 +398,10 @@ export const setBatch = mutation({
       metadata: { batch: args.batch?.trim() ?? null },
       createdAt: Date.now(),
     })
+
+    if (nextBatch === 'highlighted' && previousBatch !== 'highlighted') {
+      void queueHighlightedWebhook(ctx, skill._id)
+    }
   },
 })
 
@@ -379,7 +412,15 @@ export const insertVersion = internalMutation({
     displayName: v.string(),
     version: v.string(),
     changelog: v.string(),
+    changelogSource: v.optional(v.union(v.literal('auto'), v.literal('user'))),
     tags: v.optional(v.array(v.string())),
+    fingerprint: v.string(),
+    forkOf: v.optional(
+      v.object({
+        slug: v.string(),
+        version: v.optional(v.string()),
+      }),
+    ),
     files: v.array(
       v.object({
         path: v.string(),
@@ -390,7 +431,7 @@ export const insertVersion = internalMutation({
       }),
     ),
     parsed: v.object({
-      frontmatter: v.record(v.string(), v.string()),
+      frontmatter: v.record(v.string(), v.any()),
       metadata: v.optional(v.any()),
       clawdis: v.optional(v.any()),
     }),
@@ -412,17 +453,64 @@ export const insertVersion = internalMutation({
 
     const now = Date.now()
     if (!skill) {
+      const forkOfSlug = args.forkOf?.slug.trim().toLowerCase() || ''
+      const forkOfVersion = args.forkOf?.version?.trim() || undefined
+
+      let canonicalSkillId: Id<'skills'> | undefined
+      let forkOf:
+        | {
+            skillId: Id<'skills'>
+            kind: 'fork' | 'duplicate'
+            version?: string
+            at: number
+          }
+        | undefined
+
+      if (forkOfSlug) {
+        const upstream = await ctx.db
+          .query('skills')
+          .withIndex('by_slug', (q) => q.eq('slug', forkOfSlug))
+          .unique()
+        if (!upstream || upstream.softDeletedAt) throw new Error('Upstream skill not found')
+        canonicalSkillId = upstream.canonicalSkillId ?? upstream._id
+        forkOf = {
+          skillId: upstream._id,
+          kind: 'fork',
+          version: forkOfVersion,
+          at: now,
+        }
+      } else {
+        const match = await findCanonicalSkillForFingerprint(ctx, args.fingerprint)
+        if (match) {
+          canonicalSkillId = match.canonicalSkillId ?? match._id
+          forkOf = {
+            skillId: match._id,
+            kind: 'duplicate',
+            at: now,
+          }
+        }
+      }
+
       const summary = getFrontmatterValue(args.parsed.frontmatter, 'description')
       const skillId = await ctx.db.insert('skills', {
         slug: args.slug,
         displayName: args.displayName,
         summary: summary ?? undefined,
         ownerUserId: userId,
+        canonicalSkillId,
+        forkOf,
         latestVersionId: undefined,
         tags: {},
         softDeletedAt: undefined,
         badges: { redactionApproved: undefined },
-        stats: { downloads: 0, stars: 0, versions: 0, comments: 0 },
+        stats: {
+          downloads: 0,
+          installsCurrent: 0,
+          installsAllTime: 0,
+          stars: 0,
+          versions: 0,
+          comments: 0,
+        },
         createdAt: now,
         updatedAt: now,
       })
@@ -442,7 +530,9 @@ export const insertVersion = internalMutation({
     const versionId = await ctx.db.insert('skillVersions', {
       skillId: skill._id,
       version: args.version,
+      fingerprint: args.fingerprint,
       changelog: args.changelog,
+      changelogSource: args.changelogSource,
       files: args.files,
       parsed: args.parsed,
       createdBy: userId,
@@ -492,6 +582,13 @@ export const insertVersion = internalMutation({
         })
       }
     }
+
+    await ctx.db.insert('skillVersionFingerprints', {
+      skillId: skill._id,
+      versionId,
+      fingerprint: args.fingerprint,
+      createdAt: now,
+    })
 
     return { skillId: skill._id, versionId, embeddingId }
   },
@@ -552,26 +649,27 @@ export const setSkillSoftDeletedInternal = internalMutation({
   },
 })
 
-async function fetchText(
-  ctx: { storage: { get: (id: Id<'_storage'>) => Promise<Blob | null> } },
-  storageId: Id<'_storage'>,
-) {
-  const blob = await ctx.storage.get(storageId)
-  if (!blob) throw new Error('File missing in storage')
-  return blob.text()
-}
-
-function safeJson(value: string) {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return undefined
-  }
-}
-
 function visibilityFor(isLatest: boolean, isApproved: boolean) {
   if (isLatest && isApproved) return 'latest-approved'
   if (isLatest) return 'latest'
   if (isApproved) return 'archived-approved'
   return 'archived'
+}
+
+async function findCanonicalSkillForFingerprint(
+  ctx: { db: MutationCtx['db'] },
+  fingerprint: string,
+) {
+  const matches = await ctx.db
+    .query('skillVersionFingerprints')
+    .withIndex('by_fingerprint', (q) => q.eq('fingerprint', fingerprint))
+    .take(25)
+
+  for (const entry of matches) {
+    const skill = await ctx.db.get(entry.skillId)
+    if (!skill || skill.softDeletedAt) continue
+    return skill
+  }
+
+  return null
 }

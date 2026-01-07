@@ -1,7 +1,7 @@
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Link } from '@tanstack/react-router'
 import { useConvexAuth, useQuery } from 'convex/react'
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Menu, Monitor, Moon, Sun } from 'lucide-react'
 import { useRef } from 'react'
 import { api } from '../../convex/_generated/api'
 import { gravatarUrl } from '../lib/gravatar'
@@ -26,56 +26,132 @@ export default function Header() {
   const avatar = me?.image ?? (me?.email ? gravatarUrl(me.email) : undefined)
   const handle = me?.handle ?? me?.displayName ?? 'user'
   const initial = (me?.displayName ?? me?.name ?? handle).charAt(0).toUpperCase()
+  const isModerator = me?.role === 'admin' || me?.role === 'moderator'
+
+  const setTheme = (next: 'system' | 'light' | 'dark') => {
+    startThemeTransition({
+      nextTheme: next,
+      currentTheme: mode,
+      setTheme: (value) => {
+        const nextMode = value as 'system' | 'light' | 'dark'
+        applyTheme(nextMode)
+        setMode(nextMode)
+      },
+      context: { element: toggleRef.current },
+    })
+  }
 
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <Link to="/" search={{}} className="brand">
+        <Link to="/" search={{ q: undefined, highlighted: undefined }} className="brand">
           <span className="brand-mark">
             <img src="/clawd-logo.png" alt="" aria-hidden="true" />
           </span>
-          ClawdHub
+          <span className="brand-name">ClawdHub</span>
         </Link>
         <nav className="nav-links">
-          <Link to="/skills">Skills</Link>
+          <Link
+            to="/skills"
+            search={{
+              q: undefined,
+              sort: undefined,
+              dir: undefined,
+              highlighted: undefined,
+              view: undefined,
+            }}
+          >
+            Skills
+          </Link>
           <Link to="/upload">Upload</Link>
-          <Link to="/search">Search</Link>
+          <Link to="/search" search={{ q: undefined, highlighted: undefined }}>
+            Search
+          </Link>
           {me ? <Link to="/stars">Stars</Link> : null}
-          {me?.role === 'admin' || me?.role === 'moderator' ? <Link to="/admin">Admin</Link> : null}
+          {isModerator ? <Link to="/admin">Admin</Link> : null}
         </nav>
         <div className="nav-actions">
-          <ToggleGroup
-            ref={toggleRef}
-            type="single"
-            value={mode}
-            onValueChange={(value) => {
-              if (!value) return
-              startThemeTransition({
-                nextTheme: value as 'system' | 'light' | 'dark',
-                currentTheme: mode,
-                setTheme: (next) => {
-                  const nextMode = next as 'system' | 'light' | 'dark'
-                  applyTheme(nextMode)
-                  setMode(nextMode)
-                },
-                context: { element: toggleRef.current },
-              })
-            }}
-            aria-label="Theme mode"
-          >
-            <ToggleGroupItem value="system" aria-label="System theme">
-              <Monitor className="h-4 w-4" aria-hidden="true" />
-              <span className="sr-only">System</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="light" aria-label="Light theme">
-              <Sun className="h-4 w-4" aria-hidden="true" />
-              <span className="sr-only">Light</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="dark" aria-label="Dark theme">
-              <Moon className="h-4 w-4" aria-hidden="true" />
-              <span className="sr-only">Dark</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="nav-mobile">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="nav-mobile-trigger" type="button" aria-label="Open menu">
+                  <Menu className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/skills"
+                    search={{
+                      q: undefined,
+                      sort: undefined,
+                      dir: undefined,
+                      highlighted: undefined,
+                      view: undefined,
+                    }}
+                  >
+                    Skills
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/upload">Upload</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/search" search={{ q: undefined, highlighted: undefined }}>
+                    Search
+                  </Link>
+                </DropdownMenuItem>
+                {me ? (
+                  <DropdownMenuItem asChild>
+                    <Link to="/stars">Stars</Link>
+                  </DropdownMenuItem>
+                ) : null}
+                {isModerator ? (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">Admin</Link>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor className="h-4 w-4" aria-hidden="true" />
+                  System
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="h-4 w-4" aria-hidden="true" />
+                  Light
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon className="h-4 w-4" aria-hidden="true" />
+                  Dark
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="theme-toggle">
+            <ToggleGroup
+              ref={toggleRef}
+              type="single"
+              value={mode}
+              onValueChange={(value) => {
+                if (!value) return
+                setTheme(value as 'system' | 'light' | 'dark')
+              }}
+              aria-label="Theme mode"
+            >
+              <ToggleGroupItem value="system" aria-label="System theme">
+                <Monitor className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">System</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="light" aria-label="Light theme">
+                <Sun className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Light</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem value="dark" aria-label="Dark theme">
+                <Moon className="h-4 w-4" aria-hidden="true" />
+                <span className="sr-only">Dark</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
           {isAuthenticated && me ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -107,7 +183,8 @@ export default function Header() {
               disabled={isLoading}
               onClick={() => void signIn('github')}
             >
-              Sign in with GitHub
+              <span className="sign-in-label">Sign in</span>
+              <span className="sign-in-provider">with GitHub</span>
             </button>
           )}
         </div>

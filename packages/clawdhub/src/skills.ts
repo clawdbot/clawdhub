@@ -6,6 +6,14 @@ import ignore from 'ignore'
 import mime from 'mime'
 import { type Lockfile, LockfileSchema, parseArk, TEXT_FILE_EXTENSION_SET } from './schema/index.js'
 
+export type SkillOrigin = {
+  version: 1
+  registry: string
+  slug: string
+  installedVersion: string
+  installedAt: number
+}
+
 export async function extractZipToDir(zipBytes: Uint8Array, targetDir: string) {
   const entries = unzipSync(zipBytes)
   await mkdir(targetDir, { recursive: true })
@@ -93,6 +101,32 @@ export async function writeLockfile(workdir: string, lock: Lockfile) {
   const path = join(workdir, '.clawdhub', 'lock.json')
   await mkdir(dirname(path), { recursive: true })
   await writeFile(path, `${JSON.stringify(lock, null, 2)}\n`, 'utf8')
+}
+
+export async function readSkillOrigin(skillFolder: string): Promise<SkillOrigin | null> {
+  const path = join(skillFolder, '.clawdhub', 'origin.json')
+  try {
+    const raw = await readFile(path, 'utf8')
+    const parsed = JSON.parse(raw) as Partial<SkillOrigin>
+    if (parsed.version !== 1) return null
+    if (!parsed.registry || !parsed.slug || !parsed.installedVersion) return null
+    if (typeof parsed.installedAt !== 'number' || !Number.isFinite(parsed.installedAt)) return null
+    return {
+      version: 1,
+      registry: String(parsed.registry),
+      slug: String(parsed.slug),
+      installedVersion: String(parsed.installedVersion),
+      installedAt: parsed.installedAt,
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function writeSkillOrigin(skillFolder: string, origin: SkillOrigin) {
+  const path = join(skillFolder, '.clawdhub', 'origin.json')
+  await mkdir(dirname(path), { recursive: true })
+  await writeFile(path, `${JSON.stringify(origin, null, 2)}\n`, 'utf8')
 }
 
 function normalizePath(path: string) {

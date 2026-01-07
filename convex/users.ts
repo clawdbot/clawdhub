@@ -1,5 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { v } from 'convex/values'
+import { internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
 import { assertRole, requireUser } from './lib/access'
 
@@ -69,6 +70,7 @@ export const deleteAccount = mutation({
       deletedAt: Date.now(),
       updatedAt: Date.now(),
     })
+    await ctx.runMutation(internal.telemetry.clearUserTelemetryInternal, { userId })
   },
 })
 

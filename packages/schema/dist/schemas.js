@@ -59,6 +59,10 @@ export const CliPublishRequestSchema = type({
     version: 'string',
     changelog: 'string',
     tags: 'string[]?',
+    forkOf: type({
+        slug: 'string',
+        version: 'string?',
+    }).optional(),
     files: CliPublishFileSchema.array(),
 });
 export const ApiCliPublishResponseSchema = type({
@@ -75,6 +79,19 @@ export const ApiCliSkillDeleteResponseSchema = type({
 export const ApiSkillResolveResponseSchema = type({
     match: type({ version: 'string' }).or('null'),
     latestVersion: type({ version: 'string' }).or('null'),
+});
+export const CliTelemetrySyncRequestSchema = type({
+    roots: type({
+        rootId: 'string',
+        label: 'string',
+        skills: type({
+            slug: 'string',
+            version: 'string|null?',
+        }).array(),
+    }).array(),
+});
+export const ApiCliTelemetrySyncResponseSchema = type({
+    ok: 'true',
 });
 export const SkillInstallSpecSchema = type({
     id: 'string?',

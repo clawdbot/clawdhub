@@ -28,6 +28,15 @@ const skills = defineTable({
   displayName: v.string(),
   summary: v.optional(v.string()),
   ownerUserId: v.id('users'),
+  canonicalSkillId: v.optional(v.id('skills')),
+  forkOf: v.optional(
+    v.object({
+      skillId: v.id('skills'),
+      kind: v.union(v.literal('fork'), v.literal('duplicate')),
+      version: v.optional(v.string()),
+      at: v.number(),
+    }),
+  ),
   latestVersionId: v.optional(v.id('skillVersions')),
   tags: v.record(v.string(), v.id('skillVersions')),
   softDeletedAt: v.optional(v.number()),
@@ -42,6 +51,8 @@ const skills = defineTable({
   batch: v.optional(v.string()),
   stats: v.object({
     downloads: v.number(),
+    installsCurrent: v.optional(v.number()),
+    installsAllTime: v.optional(v.number()),
     stars: v.number(),
     versions: v.number(),
     comments: v.number(),
@@ -57,7 +68,9 @@ const skills = defineTable({
 const skillVersions = defineTable({
   skillId: v.id('skills'),
   version: v.string(),
+  fingerprint: v.optional(v.string()),
   changelog: v.string(),
+  changelogSource: v.optional(v.union(v.literal('auto'), v.literal('user'))),
   files: v.array(
     v.object({
       path: v.string(),
@@ -68,7 +81,7 @@ const skillVersions = defineTable({
     }),
   ),
   parsed: v.object({
-    frontmatter: v.record(v.string(), v.string()),
+    frontmatter: v.record(v.string(), v.any()),
     metadata: v.optional(v.any()),
     clawdis: v.optional(v.any()),
   }),
@@ -78,6 +91,16 @@ const skillVersions = defineTable({
 })
   .index('by_skill', ['skillId'])
   .index('by_skill_version', ['skillId', 'version'])
+
+const skillVersionFingerprints = defineTable({
+  skillId: v.id('skills'),
+  versionId: v.id('skillVersions'),
+  fingerprint: v.string(),
+  createdAt: v.number(),
+})
+  .index('by_version', ['versionId'])
+  .index('by_fingerprint', ['fingerprint'])
+  .index('by_skill_fingerprint', ['skillId', 'fingerprint'])
 
 const skillEmbeddings = defineTable({
   skillId: v.id('skills'),
@@ -140,14 +163,56 @@ const apiTokens = defineTable({
   .index('by_user', ['userId'])
   .index('by_hash', ['tokenHash'])
 
+const userSyncRoots = defineTable({
+  userId: v.id('users'),
+  rootId: v.string(),
+  label: v.string(),
+  firstSeenAt: v.number(),
+  lastSeenAt: v.number(),
+  expiredAt: v.optional(v.number()),
+})
+  .index('by_user', ['userId'])
+  .index('by_user_root', ['userId', 'rootId'])
+
+const userSkillInstalls = defineTable({
+  userId: v.id('users'),
+  skillId: v.id('skills'),
+  firstSeenAt: v.number(),
+  lastSeenAt: v.number(),
+  activeRoots: v.number(),
+  lastVersion: v.optional(v.string()),
+})
+  .index('by_user', ['userId'])
+  .index('by_user_skill', ['userId', 'skillId'])
+  .index('by_skill', ['skillId'])
+
+const userSkillRootInstalls = defineTable({
+  userId: v.id('users'),
+  rootId: v.string(),
+  skillId: v.id('skills'),
+  firstSeenAt: v.number(),
+  lastSeenAt: v.number(),
+  lastVersion: v.optional(v.string()),
+  removedAt: v.optional(v.number()),
+})
+  .index('by_user', ['userId'])
+  .index('by_user_root', ['userId', 'rootId'])
+  .index('by_user_root_skill', ['userId', 'rootId', 'skillId'])
+  .index('by_user_skill', ['userId', 'skillId'])
+  .index('by_skill', ['skillId'])
+
 export default defineSchema({
   ...authTables,
   users,
   skills,
   skillVersions,
+  skillVersionFingerprints,
   skillEmbeddings,
   comments,
   stars,
   auditLogs,
   apiTokens,
+  userSyncRoots,
+  userSkillInstalls,
+  userSkillRootInstalls,
 })
