@@ -19,6 +19,23 @@ describe('skill OG SVG', () => {
     expect(svg).toContain('clawdhub.com/jhillock/discord-doctor')
   })
 
+  it('wraps long titles to avoid clipping', () => {
+    const svg = buildSkillOgSvg({
+      markDataUrl: 'data:image/png;base64,AAA=',
+      title: 'Excalidraw Flowchart',
+      description: 'Create Excalidraw flowcharts from descriptions.',
+      ownerLabel: '@swiftlysisngh',
+      versionLabel: 'v1.0.2',
+      footer: 'clawdhub.com/swiftlysisngh/excalidraw-flowchart',
+    })
+
+    const titleBlock = svg.match(/<text[^>]*font-weight="800"[\s\S]*?<\/text>/)?.[0] ?? ''
+    const titleTspans = titleBlock.match(/<tspan /g) ?? []
+    expect(titleTspans.length).toBe(2)
+    expect(svg).toContain('Excalidraw')
+    expect(svg).toContain('Flowchart')
+  })
+
   it('clips and wraps long descriptions', () => {
     const longWord = 'a'.repeat(200)
     const svg = buildSkillOgSvg({

@@ -34,7 +34,7 @@ type SoulMeta = {
 
 const DEFAULT_DESCRIPTION = 'ClawdHub — a fast skill registry for agents, with vector search.'
 const DEFAULT_SOUL_DESCRIPTION = 'SoulHub — the home for SOUL.md bundles and personal system lore.'
-const OG_SKILL_IMAGE_LAYOUT_VERSION = '4'
+const OG_SKILL_IMAGE_LAYOUT_VERSION = '5'
 const OG_SOUL_IMAGE_LAYOUT_VERSION = '1'
 
 export function getSiteUrl() {

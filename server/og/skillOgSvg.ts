@@ -18,7 +18,39 @@ function escapeXml(value: string) {
     .replace(/'/g, '&#39;')
 }
 
-function wrapText(value: string, maxChars: number, maxLines: number) {
+function glyphWidthFactor(char: string) {
+  if (char === ' ') return 0.28
+  if (char === '…') return 0.62
+  if (/[ilI.,:;|!'"`]/.test(char)) return 0.28
+  if (/[mwMW@%&]/.test(char)) return 0.9
+  if (/[A-Z]/.test(char)) return 0.68
+  if (/[0-9]/.test(char)) return 0.6
+  return 0.56
+}
+
+function estimateTextWidth(value: string, fontSize: number) {
+  let width = 0
+  for (const char of value) width += glyphWidthFactor(char) * fontSize
+  return width
+}
+
+function truncateToWidth(value: string, maxWidth: number, fontSize: number) {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  if (estimateTextWidth(trimmed, fontSize) <= maxWidth) return trimmed
+
+  const ellipsis = '…'
+  const ellipsisWidth = estimateTextWidth(ellipsis, fontSize)
+  let out = ''
+  for (const char of trimmed) {
+    const next = out + char
+    if (estimateTextWidth(next, fontSize) + ellipsisWidth > maxWidth) break
+    out = next
+  }
+  return `${out.replace(/\s+$/g, '').replace(/[.。,;:!?]+$/g, '')}${ellipsis}`
+}
+
+function wrapText(value: string, maxWidth: number, fontSize: number, maxLines: number) {
   const words = value.trim().split(/\s+/).filter(Boolean)
   const lines: string[] = []
   let current = ''
@@ -29,19 +61,26 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
   }
 
   function splitLongWord(word: string) {
-    if (word.length <= maxChars) return [word]
+    if (estimateTextWidth(word, fontSize) <= maxWidth) return [word]
     const parts: string[] = []
     let remaining = word
-    while (remaining.length > maxChars) {
-      parts.push(`${remaining.slice(0, maxChars - 1)}…`)
-      remaining = remaining.slice(maxChars - 1)
+    while (remaining && estimateTextWidth(remaining, fontSize) > maxWidth) {
+      let chunk = ''
+      for (const char of remaining) {
+        const next = chunk + char
+        if (estimateTextWidth(`${next}…`, fontSize) > maxWidth) break
+        chunk = next
+      }
+      if (!chunk) break
+      parts.push(`${chunk}…`)
+      remaining = remaining.slice(chunk.length)
     }
     if (remaining) parts.push(remaining)
     return parts
   }
 
   for (const word of words) {
-    if (word.length > maxChars) {
+    if (estimateTextWidth(word, fontSize) > maxWidth) {
       if (current) {
         pushLine(current)
         current = ''
@@ -58,7 +97,7 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
     }
 
     const next = current ? `${current} ${word}` : word
-    if (next.length <= maxChars) {
+    if (estimateTextWidth(next, fontSize) <= maxWidth) {
       current = next
       continue
     }
@@ -71,9 +110,7 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
 
   const usedWords = lines.join(' ').split(/\s+/).filter(Boolean).length
   if (usedWords < words.length) {
-    const last = lines.at(-1) ?? ''
-    const trimmed = last.length > maxChars ? last.slice(0, maxChars) : last
-    lines[lines.length - 1] = `${trimmed.replace(/\s+$/g, '').replace(/[.。,;:!?]+$/g, '')}…`
+    lines[lines.length - 1] = truncateToWidth(lines.at(-1) ?? '', maxWidth, fontSize)
   }
   return lines
 }
@@ -88,10 +125,18 @@ export function buildSkillOgSvg(params: SkillOgSvgParams) {
   const cardH = 456
   const cardR = 34
 
-  const titleLines = wrapText(rawTitle, 22, 2)
-  const descLines = wrapText(rawDescription, 42, 3)
+  const contentX = 114
+  const contentRightPadding = 28
+  const contentMaxWidth = cardX + cardW - contentX - contentRightPadding
 
-  const titleFontSize = titleLines.length > 1 || rawTitle.length > 24 ? 72 : 80
+  const titleMaxLines = 2
+  const descMaxLines = 3
+
+  const titleProbeLines = wrapText(rawTitle, contentMaxWidth, 80, titleMaxLines)
+  const titleFontSize = titleProbeLines.length > 1 ? 72 : 80
+  const titleLines = wrapText(rawTitle, contentMaxWidth, titleFontSize, titleMaxLines)
+
+  const descLines = wrapText(rawDescription, contentMaxWidth, 26, descMaxLines)
   const titleY = titleLines.length > 1 ? 258 : 280
   const titleLineHeight = 84
 
