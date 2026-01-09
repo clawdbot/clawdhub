@@ -46,7 +46,8 @@ export function getSoulSiteUrl() {
 }
 
 export function getApiBase() {
-  return import.meta.env.VITE_CONVEX_SITE_URL ?? getSiteUrl()
+  const explicit = import.meta.env.VITE_CONVEX_SITE_URL?.trim()
+  return explicit || getSiteUrl()
 }
 
 export async function fetchSkillMeta(slug: string) {
