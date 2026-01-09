@@ -283,11 +283,11 @@ export function Upload() {
           ? rawPath.slice(stripRoot.length + 1)
           : rawPath
       const sha256 = await hashFile(file)
-      const stored = await uploadFile(uploadUrl, file)
+      const storageId = await uploadFile(uploadUrl, file)
       uploaded.push({
         path,
         size: file.size,
-        storageId: stored.storageId,
+        storageId,
         sha256,
         contentType: file.type || undefined,
       })
@@ -392,7 +392,10 @@ export function Upload() {
               ref={fileInputRef}
               className="upload-input"
               id="upload-files"
+<<<<<<< HEAD
               data-testid="upload-input"
+=======
+>>>>>>> 9d66e54 (feat: add soulhub ui and docs)
               type="file"
               multiple
               onChange={(event) => {
@@ -471,11 +474,15 @@ export function Upload() {
             </div>
           ) : null}
           {status ? <div className="stat">{status}</div> : null}
+<<<<<<< HEAD
           <button
             className="btn btn-primary"
             type="submit"
             disabled={!validation.ready || isSubmitting}
           >
+=======
+          <button className="btn btn-primary" type="submit" disabled={!validation.ready}>
+>>>>>>> 9d66e54 (feat: add soulhub ui and docs)
             Publish {contentLabel}
           </button>
           {hasAttempted && !validation.ready ? (

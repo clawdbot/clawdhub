@@ -20,6 +20,7 @@ export function SoulDetailPage({ slug }: SoulDetailPageProps) {
   const ensureSoulSeeds = useAction(api.seed.ensureSoulSeeds)
   const seedEnsuredRef = useRef(false)
   const [readme, setReadme] = useState<string | null>(null)
+  const [readmeError, setReadmeError] = useState<string | null>(null)
   const [comment, setComment] = useState('')
 
   const isLoadingSoul = result === undefined
@@ -55,11 +56,18 @@ export function SoulDetailPage({ slug }: SoulDetailPageProps) {
   useEffect(() => {
     if (!latestVersion) return
     setReadme(null)
+    setReadmeError(null)
     let cancelled = false
-    void getReadme({ versionId: latestVersion._id }).then((data) => {
-      if (cancelled) return
-      setReadme(data.text)
-    })
+    void getReadme({ versionId: latestVersion._id })
+      .then((data) => {
+        if (cancelled) return
+        setReadme(data.text)
+      })
+      .catch((error) => {
+        if (cancelled) return
+        setReadmeError(error instanceof Error ? error.message : 'Failed to load SOUL.md')
+        setReadme(null)
+      })
     return () => {
       cancelled = true
     }
@@ -137,6 +145,8 @@ export function SoulDetailPage({ slug }: SoulDetailPageProps) {
           <div className="skill-readme markdown">
             {readmeContent ? (
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{readmeContent}</ReactMarkdown>
+            ) : readmeError ? (
+              <div className="stat">Failed to load SOUL.md: {readmeError}</div>
             ) : (
               <div className="loading-indicator">Loading SOUL.md…</div>
             )}
