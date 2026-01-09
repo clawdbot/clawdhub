@@ -137,7 +137,7 @@ export const setSoulSeedStateInternal = internalMutation({
       await ctx.db.patch(existing._id, { cursor: args.status, updatedAt: now })
       return existing._id
     }
-    return ctx.db.insert('githubBackupSyncState', {
+    return await ctx.db.insert('githubBackupSyncState', {
       key: SOUL_SEED_KEY,
       cursor: args.status,
       updatedAt: now,
@@ -264,7 +264,7 @@ export const ensureSeedUserInternal = internalMutation({
         return existing._id
       }
 
-      return ctx.db.insert('users', {
+      return await ctx.db.insert('users', {
         handle: candidate,
         displayName,
         createdAt: Date.now(),
