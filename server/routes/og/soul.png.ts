@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
   const title = titleFromQuery || meta?.displayName || slug
   const description = descriptionFromQuery || meta?.summary || ''
 
-  const ownerLabel = owner ? `@${owner}` : 'soulhub'
+  const ownerLabel = owner ? `@${owner}` : 'onlycrabs.ai'
   const versionLabel = version ? `v${version}` : 'latest'
   const footer = buildFooter(getRequestHost(event), slug, owner || null)
 

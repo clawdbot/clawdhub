@@ -79,8 +79,8 @@ function wrapText(value: string, maxChars: number, maxLines: number) {
 }
 
 export function buildSoulOgSvg(params: SoulOgSvgParams) {
-  const rawTitle = params.title.trim() || 'SoulHub'
-  const rawDescription = params.description.trim() || 'SOUL.md bundle on SoulHub.'
+  const rawTitle = params.title.trim() || 'onlycrabs.ai'
+  const rawDescription = params.description.trim() || 'SOUL.md bundle on onlycrabs.ai.'
 
   const cardX = 72
   const cardY = 96

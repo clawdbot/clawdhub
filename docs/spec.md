@@ -9,7 +9,7 @@ read_when:
 # ClawdHub — product + implementation spec (v1)
 
 ## Goals
-- SoulHub mode for sharing `SOUL.md` bundles (host-based entry point).
+- onlycrabs.ai mode for sharing `SOUL.md` bundles (host-based entry point).
 - Minimal, fast SPA for browsing and publishing agent skills.
 - Skills stored in Convex (files + metadata + versions + stats).
 - GitHub OAuth login; GitHub App backs up skills to `clawdbot/skills`.

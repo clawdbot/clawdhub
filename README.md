@@ -9,10 +9,10 @@
 ClawdHub is the **public skill registry for Clawdbot**: publish, version, and search text-based agent skills (a `SKILL.md` plus supporting files).
 It’s designed for fast browsing + a CLI-friendly API, with moderation hooks and vector search.
 
-SoulHub is the **SOUL.md registry** (hosted at `onlycrabs.ai` for now): publish and share system lore the same way you publish skills.
+onlycrabs.ai is the **SOUL.md registry**: publish and share system lore the same way you publish skills.
 
 Live: `https://clawdhub.com`
-SoulHub (placeholder): `https://onlycrabs.ai`
+onlycrabs.ai: `https://onlycrabs.ai`
 
 ## What you can do
 
@@ -23,10 +23,10 @@ SoulHub (placeholder): `https://onlycrabs.ai`
 - Search via embeddings (vector index) instead of brittle keywords.
 - Star + comment; admins/mods can curate and approve skills.
 
-## SoulHub (SOUL.md registry)
+## onlycrabs.ai (SOUL.md registry)
 
-- Entry point is host-based: `onlycrabs.ai` (placeholder).
-- On the SoulHub host, the home page and nav default to souls.
+- Entry point is host-based: `onlycrabs.ai`.
+- On the onlycrabs.ai host, the home page and nav default to souls.
 - On ClawdHub, souls live under `/souls`.
 - Soul bundles only accept `SOUL.md` for now (no extra files).
 
@@ -84,8 +84,8 @@ This writes `JWT_PRIVATE_KEY` + `JWKS` to the deployment and prints values for y
 
 - `VITE_CONVEX_URL`: Convex deployment URL (`https://<deployment>.convex.cloud`).
 - `VITE_CONVEX_SITE_URL`: Convex site URL (`https://<deployment>.convex.site`).
-- `VITE_SOULHUB_SITE_URL`: SoulHub site URL (`https://onlycrabs.ai`).
-- `VITE_SOULHUB_HOST`: SoulHub host match (`onlycrabs.ai`).
+- `VITE_SOULHUB_SITE_URL`: onlycrabs.ai site URL (`https://onlycrabs.ai`).
+- `VITE_SOULHUB_HOST`: onlycrabs.ai host match (`onlycrabs.ai`).
 - `VITE_SITE_MODE`: Optional override (`skills` or `souls`) for SSR builds.
 - `CONVEX_SITE_URL`: same as `VITE_CONVEX_SITE_URL` (auth + cookies).
 - `SITE_URL`: App URL (local: `http://localhost:3000`).

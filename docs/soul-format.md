@@ -13,7 +13,7 @@ A soul is a single file:
 
 - `SOUL.md` (or `soul.md`)
 
-For now, SoulHub rejects any extra files.
+For now, onlycrabs.ai rejects any extra files.
 
 ## `SOUL.md`
 
