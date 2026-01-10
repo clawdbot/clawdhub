@@ -78,7 +78,10 @@ function SoulsIndex() {
         case 'updated':
           return (a.updatedAt - b.updatedAt) * multiplier
         case 'name':
-          return (a.displayName.localeCompare(b.displayName) || a.slug.localeCompare(b.slug)) * multiplier
+          return (
+            (a.displayName.localeCompare(b.displayName) || a.slug.localeCompare(b.slug)) *
+            multiplier
+          )
         default:
           return (a.createdAt - b.createdAt) * multiplier
       }
