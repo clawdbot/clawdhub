@@ -305,11 +305,11 @@ function OnlyCrabsHome() {
       search: () => ({
         q: trimmedQuery || undefined,
         highlighted: undefined,
-        search: undefined,
+        search: searchMode && !trimmedQuery ? true : undefined,
       }),
       replace: true,
     })
-  }, [navigate, trimmedQuery])
+  }, [navigate, searchMode, trimmedQuery])
 
   useEffect(() => {
     if (!trimmedQuery) {
