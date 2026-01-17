@@ -1,29 +1,19 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/search')({
   validateSearch: (search) => ({
     q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
     highlighted: search.highlighted === '1' || search.highlighted === 'true' ? true : undefined,
   }),
-  component: SearchRedirect,
-})
-
-function SearchRedirect() {
-  const navigate = Route.useNavigate()
-  const search = Route.useSearch()
-
-  useEffect(() => {
-    void navigate({
+  beforeLoad: ({ search }) => {
+    throw redirect({
       to: '/',
-      search: (prev) => ({
-        ...prev,
+      search: {
         q: search.q || undefined,
-        highlighted: search.highlighted ? true : undefined,
-      }),
+        highlighted: search.highlighted || undefined,
+        search: true,
+      },
       replace: true,
     })
-  }, [navigate, search.highlighted, search.q])
-
-  return null
-}
+  },
+})

@@ -49,7 +49,7 @@ export default function Header() {
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <Link to="/" search={{ q: undefined, highlighted: undefined }} className="brand">
+        <Link to="/" search={{ q: undefined, highlighted: undefined, search: undefined }} className="brand">
           <span className="brand-mark">
             <img src="/clawd-logo.png" alt="" aria-hidden="true" />
           </span>
