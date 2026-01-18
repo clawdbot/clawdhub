@@ -145,6 +145,7 @@ export function SkillsIndex() {
   )
 
   const sorted = useMemo(() => {
+    if (hasQuery) return filtered
     const multiplier = dir === 'asc' ? 1 : -1
     const results = [...filtered]
     results.sort((a, b) => {
@@ -170,7 +171,7 @@ export function SkillsIndex() {
       }
     })
     return results
-  }, [dir, filtered, sort])
+  }, [dir, filtered, hasQuery, sort])
 
   const isLoadingSkills = hasQuery ? isSearching && searchResults.length === 0 : isLoadingList
   const canLoadMore = hasQuery
@@ -255,8 +256,9 @@ export function SkillsIndex() {
             </button>
             <select
               className="skills-sort"
-              value={sort}
+              value={hasQuery ? 'relevance' : sort}
               onChange={(event) => {
+                if (hasQuery) return
                 const sort = parseSort(event.target.value)
                 void navigate({
                   search: (prev) => ({
@@ -267,8 +269,10 @@ export function SkillsIndex() {
                   replace: true,
                 })
               }}
-              aria-label="Sort skills"
+              aria-label={hasQuery ? 'Sorted by relevance' : 'Sort skills'}
+              disabled={hasQuery}
             >
+              <option value="relevance">Relevance</option>
               <option value="newest">Newest</option>
               <option value="updated">Recently updated</option>
               <option value="downloads">Downloads</option>
@@ -281,6 +285,7 @@ export function SkillsIndex() {
               type="button"
               aria-label={`Sort direction ${dir}`}
               onClick={() => {
+                if (hasQuery) return
                 void navigate({
                   search: (prev) => ({
                     ...prev,
@@ -289,6 +294,7 @@ export function SkillsIndex() {
                   replace: true,
                 })
               }}
+              disabled={hasQuery}
             >
               {dir === 'asc' ? '↑' : '↓'}
             </button>

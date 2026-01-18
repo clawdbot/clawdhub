@@ -1,8 +1,8 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalAction, internalMutation } from './_generated/server'
-import { EMBEDDING_DIMENSIONS } from './lib/embeddings'
-import { parseClawdisMetadata, parseFrontmatter } from './lib/skills'
+import { generateEmbedding } from './lib/embeddings'
+import { buildEmbeddingText, parseClawdisMetadata, parseFrontmatter } from './lib/skills'
 
 type SeedSkillSpec = {
   slug: string
@@ -249,6 +249,8 @@ export const seedNixSkills = internalAction({
       const frontmatter = parseFrontmatter(skillMd)
       const clawdis = parseClawdisMetadata(frontmatter)
       const storageId = await ctx.storage.store(new Blob([skillMd], { type: 'text/markdown' }))
+      const embeddingText = buildEmbeddingText({ frontmatter, readme: skillMd, otherFiles: [] })
+      const embedding = await generateEmbedding(embeddingText)
 
       const result = await ctx.runMutation(internal.devSeed.seedSkillMutation, {
         reset: args.reset,
@@ -261,6 +263,7 @@ export const seedNixSkills = internalAction({
         displayName: spec.displayName,
         summary: spec.summary,
         version: spec.version,
+        embedding,
       })
 
       results.push({ slug: spec.slug, ...result })
@@ -282,6 +285,8 @@ export const seedPadelSkill = internalAction({
     const frontmatter = parseFrontmatter(skillMd)
     const clawdis = parseClawdisMetadata(frontmatter)
     const storageId = await ctx.storage.store(new Blob([skillMd], { type: 'text/markdown' }))
+    const embeddingText = buildEmbeddingText({ frontmatter, readme: skillMd, otherFiles: [] })
+    const embedding = await generateEmbedding(embeddingText)
 
     return ctx.runMutation(internal.devSeed.seedSkillMutation, {
       reset: args.reset,
@@ -294,6 +299,7 @@ export const seedPadelSkill = internalAction({
       displayName: spec.displayName,
       summary: spec.summary,
       version: spec.version,
+      embedding,
     })
   },
 })
@@ -310,6 +316,7 @@ export const seedSkillMutation = internalMutation({
     displayName: v.string(),
     summary: v.optional(v.string()),
     version: v.string(),
+    embedding: v.array(v.number()),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -403,7 +410,7 @@ export const seedSkillMutation = internalMutation({
       skillId,
       versionId,
       ownerId: userId,
-      embedding: Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0),
+      embedding: args.embedding,
       isLatest: true,
       isApproved: true,
       visibility: 'latest-approved',
