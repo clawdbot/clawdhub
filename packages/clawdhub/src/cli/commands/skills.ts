@@ -5,6 +5,7 @@ import { apiRequest, downloadZip } from '../../http.js'
 import {
   ApiRoutes,
   ApiV1SearchResponseSchema,
+  ApiV1SkillListResponseSchema,
   ApiV1SkillResolveResponseSchema,
   ApiV1SkillResponseSchema,
 } from '../../schema/index.js'
@@ -239,6 +240,59 @@ export async function cmdList(opts: GlobalOpts) {
   for (const [slug, entry] of entries) {
     console.log(`${slug}  ${entry.version ?? 'latest'}`)
   }
+}
+
+export async function cmdExplore(opts: GlobalOpts, limit = 25) {
+  const registry = await getRegistry(opts, { cache: true })
+  const spinner = createSpinner('Fetching latest skills')
+  try {
+    const url = new URL(ApiRoutes.skills, registry)
+    url.searchParams.set('limit', String(Math.min(Math.max(1, limit), 50)))
+    const result = await apiRequest(
+      registry,
+      { method: 'GET', url: url.toString() },
+      ApiV1SkillListResponseSchema,
+    )
+
+    spinner.stop()
+    if (result.items.length === 0) {
+      console.log('No skills found.')
+      return
+    }
+
+    for (const item of result.items) {
+      const version = item.latestVersion?.version ?? '?'
+      const age = formatRelativeTime(item.updatedAt)
+      const summary = item.summary ? `  ${truncate(item.summary, 50)}` : ''
+      console.log(`${item.slug}  v${version}  ${age}${summary}`)
+    }
+  } catch (error) {
+    spinner.fail(formatError(error))
+    throw error
+  }
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (days > 30) {
+    const months = Math.floor(days / 30)
+    return `${months}mo ago`
+  }
+  if (days > 0) return `${days}d ago`
+  if (hours > 0) return `${hours}h ago`
+  if (minutes > 0) return `${minutes}m ago`
+  return 'just now'
+}
+
+function truncate(str: string, maxLen: number): string {
+  if (str.length <= maxLen) return str
+  return str.slice(0, maxLen - 1) + '…'
 }
 
 async function resolveSkillVersion(registry: string, slug: string, hash: string) {

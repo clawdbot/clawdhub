@@ -7,7 +7,7 @@ import { resolveClawdbotDefaultWorkspace } from './cli/clawdbotConfig.js'
 import { cmdLoginFlow, cmdLogout, cmdWhoami } from './cli/commands/auth.js'
 import { cmdDeleteSkill, cmdUndeleteSkill } from './cli/commands/delete.js'
 import { cmdPublish } from './cli/commands/publish.js'
-import { cmdInstall, cmdList, cmdSearch, cmdUpdate } from './cli/commands/skills.js'
+import { cmdExplore, cmdInstall, cmdList, cmdSearch, cmdUpdate } from './cli/commands/skills.js'
 import { cmdSync } from './cli/commands/sync.js'
 import { configureCommanderHelp, styleEnvBlock, styleTitle } from './cli/helpStyle.js'
 import { DEFAULT_REGISTRY, DEFAULT_SITE } from './cli/registry.js'
@@ -181,6 +181,16 @@ program
   .action(async () => {
     const opts = await resolveGlobalOpts()
     await cmdList(opts)
+  })
+
+program
+  .command('explore')
+  .description('Browse latest updated skills from the registry')
+  .option('--limit <n>', 'Number of skills to show (max 50)', '25')
+  .action(async (options) => {
+    const opts = await resolveGlobalOpts()
+    const limit = Number.parseInt(options.limit, 10) || 25
+    await cmdExplore(opts, limit)
   })
 
 program
