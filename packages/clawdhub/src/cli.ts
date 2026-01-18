@@ -8,7 +8,9 @@ import { cmdLoginFlow, cmdLogout, cmdWhoami } from './cli/commands/auth.js'
 import { cmdDeleteSkill, cmdUndeleteSkill } from './cli/commands/delete.js'
 import { cmdPublish } from './cli/commands/publish.js'
 import { cmdInstall, cmdList, cmdSearch, cmdUpdate } from './cli/commands/skills.js'
+import { cmdStarSkill } from './cli/commands/star.js'
 import { cmdSync } from './cli/commands/sync.js'
+import { cmdUnstarSkill } from './cli/commands/unstar.js'
 import { configureCommanderHelp, styleEnvBlock, styleTitle } from './cli/helpStyle.js'
 import { DEFAULT_REGISTRY, DEFAULT_SITE } from './cli/registry.js'
 import type { GlobalOpts } from './cli/types.js'
@@ -216,6 +218,26 @@ program
   .action(async (slug, options) => {
     const opts = await resolveGlobalOpts()
     await cmdUndeleteSkill(opts, slug, options, isInputAllowed())
+  })
+
+program
+  .command('star')
+  .description('Add a skill to your highlights')
+  .argument('<slug>', 'Skill slug')
+  .option('--yes', 'Skip confirmation')
+  .action(async (slug, options) => {
+    const opts = await resolveGlobalOpts()
+    await cmdStarSkill(opts, slug, options, isInputAllowed())
+  })
+
+program
+  .command('unstar')
+  .description('Remove a skill from your highlights')
+  .argument('<slug>', 'Skill slug')
+  .option('--yes', 'Skip confirmation')
+  .action(async (slug, options) => {
+    const opts = await resolveGlobalOpts()
+    await cmdUnstarSkill(opts, slug, options, isInputAllowed())
   })
 
 program

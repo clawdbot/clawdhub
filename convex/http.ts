@@ -26,6 +26,8 @@ import {
   soulsDeleteRouterV1Http,
   soulsGetRouterV1Http,
   soulsPostRouterV1Http,
+  starsDeleteRouterV1Http,
+  starsToggleRouterV1Http,
   whoamiV1Http,
 } from './httpApiV1'
 
@@ -115,6 +117,18 @@ http.route({
   pathPrefix: `${ApiRoutes.souls}/`,
   method: 'DELETE',
   handler: soulsDeleteRouterV1Http,
+})
+
+http.route({
+  pathPrefix: `${ApiRoutes.stars}/`,
+  method: 'POST',
+  handler: starsToggleRouterV1Http,
+})
+
+http.route({
+  pathPrefix: `${ApiRoutes.stars}/`,
+  method: 'DELETE',
+  handler: starsDeleteRouterV1Http,
 })
 
 // TODO: remove legacy /api routes after deprecation window.

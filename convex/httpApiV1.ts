@@ -1061,4 +1061,59 @@ export const __handlers = {
   soulsPostRouterV1Handler,
   soulsDeleteRouterV1Handler,
   whoamiV1Handler,
+  starsToggleRouterV1Handler,
+  starsDeleteRouterV1Handler,
 }
+
+// ============ STARS API ============
+
+async function starsToggleRouterV1Handler(ctx: ActionCtx, request: Request) {
+  const rate = await applyRateLimit(ctx, request, 'write')
+  if (!rate.ok) return rate.response
+
+  const segments = getPathSegments(request, '/api/v1/stars/')
+  if (segments.length !== 1) return text('Not found', 404, rate.headers)
+  const slug = segments[0]?.trim().toLowerCase() ?? ''
+
+  try {
+    await requireApiTokenUser(ctx, request)
+    // Get skill by slug
+    const skill = await ctx.runQuery(internal.skills.getSkillBySlugInternal, { slug })
+    if (!skill) return text('Skill not found', 404, rate.headers)
+
+    const result = await ctx.runMutation(api.stars.toggle, { skillId: skill._id })
+    return json(result, 200, rate.headers)
+  } catch (error) {
+    return text('Unauthorized', 401, rate.headers)
+  }
+}
+
+export const starsToggleRouterV1Http = httpAction(starsToggleRouterV1Handler)
+
+async function starsDeleteRouterV1Handler(ctx: ActionCtx, request: Request) {
+  const rate = await applyRateLimit(ctx, request, 'write')
+  if (!rate.ok) return rate.response
+
+  const segments = getPathSegments(request, '/api/v1/stars/')
+  if (segments.length !== 1) return text('Not found', 404, rate.headers)
+  const slug = segments[0]?.trim().toLowerCase() ?? ''
+
+  try {
+    await requireApiTokenUser(ctx, request)
+    // Get skill by slug
+    const skill = await ctx.runQuery(internal.skills.getSkillBySlugInternal, { slug })
+    if (!skill) return text('Skill not found', 404, rate.headers)
+
+    const isCurrentlyStarred = await ctx.runQuery(api.stars.isStarred, { skillId: skill._id })
+    let unstarred = false
+    if (isCurrentlyStarred) {
+      await ctx.runMutation(api.stars.toggle, { skillId: skill._id })
+      unstarred = true
+    }
+    return json({ ok: true, unstarred, alreadyUnstarred: !unstarred }, 200, rate.headers)
+  } catch (error) {
+    return text('Unauthorized', 401, rate.headers)
+  }
+}
+
+export const starsDeleteRouterV1Http = httpAction(starsDeleteRouterV1Handler)
