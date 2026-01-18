@@ -11,7 +11,8 @@ import { getSiteMode } from '../lib/site'
 export const Route = createFileRoute('/')({
   validateSearch: (search) => ({
     q: typeof search.q === 'string' && search.q.trim() ? search.q : undefined,
-    highlighted: search.highlighted === '1' || search.highlighted === 'true' ? true : undefined,
+    highlighted: search.highlighted === '1' || search.highlighted === 'true' || search.highlighted === true ? true : undefined,
+    search: search.search === '1' || search.search === 'true' || search.search === true ? true : undefined,
   }),
   component: Home,
 })
@@ -34,7 +35,7 @@ function SkillsHome() {
     Array<{ skill: Doc<'skills'>; version: Doc<'skillVersions'> | null; score: number }>
   >([])
   const [isSearching, setIsSearching] = useState(false)
-  const [searchMode, setSearchMode] = useState(Boolean(search.q || search.highlighted))
+  const [searchMode, setSearchMode] = useState(Boolean(search.q || search.highlighted || search.search))
   const searchRequest = useRef(0)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const trimmedQuery = useMemo(() => query.trim(), [query])
@@ -43,20 +44,23 @@ function SkillsHome() {
   useEffect(() => {
     setQuery(search.q ?? '')
     setHighlightedOnly(search.highlighted ?? false)
-    if (search.q || search.highlighted) {
+    if (search.q || search.highlighted || search.search) {
       setSearchMode(true)
+    } else {
+      setSearchMode(false)
     }
-  }, [search.highlighted, search.q])
+  }, [search.highlighted, search.q, search.search])
 
   useEffect(() => {
     void navigate({
       search: () => ({
         q: trimmedQuery || undefined,
         highlighted: highlightedOnly ? true : undefined,
+        search: searchMode && !trimmedQuery && !highlightedOnly ? true : undefined,
       }),
       replace: true,
     })
-  }, [highlightedOnly, navigate, trimmedQuery])
+  }, [highlightedOnly, navigate, searchMode, trimmedQuery])
 
   useEffect(() => {
     if (!trimmedQuery) {
@@ -103,16 +107,13 @@ function SkillsHome() {
               <Link to="/upload" search={{ updateSlug: undefined }} className="btn btn-primary">
                 Publish a skill
               </Link>
-              <button
+              <Link
+                to="/"
+                search={{ q: undefined, highlighted: undefined, search: true }}
                 className="btn"
-                type="button"
-                onClick={() => {
-                  setSearchMode(true)
-                  inputRef.current?.focus()
-                }}
               >
                 Explore search
-              </button>
+              </Link>
             </div>
           </div>
           <div className="hero-card hero-search-card fade-up" data-delay="2">
@@ -277,7 +278,7 @@ function OnlyCrabsHome() {
     Array<{ soul: Doc<'souls'>; version: Doc<'soulVersions'> | null; score: number }>
   >([])
   const [isSearching, setIsSearching] = useState(false)
-  const [searchMode, setSearchMode] = useState(Boolean(search.q))
+  const [searchMode, setSearchMode] = useState(Boolean(search.q || search.search))
   const searchRequest = useRef(0)
   const seedEnsuredRef = useRef(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
@@ -286,10 +287,12 @@ function OnlyCrabsHome() {
 
   useEffect(() => {
     setQuery(search.q ?? '')
-    if (search.q) {
+    if (search.q || search.search) {
       setSearchMode(true)
+    } else {
+      setSearchMode(false)
     }
-  }, [search.q])
+  }, [search.q, search.search])
 
   useEffect(() => {
     if (seedEnsuredRef.current) return
@@ -302,10 +305,11 @@ function OnlyCrabsHome() {
       search: () => ({
         q: trimmedQuery || undefined,
         highlighted: undefined,
+        search: searchMode && !trimmedQuery ? true : undefined,
       }),
       replace: true,
     })
-  }, [navigate, trimmedQuery])
+  }, [navigate, searchMode, trimmedQuery])
 
   useEffect(() => {
     if (!trimmedQuery) {

@@ -49,7 +49,7 @@ export default function Header() {
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <Link to="/" search={{ q: undefined, highlighted: undefined }} className="brand">
+        <Link to="/" search={{ q: undefined, highlighted: undefined, search: undefined }} className="brand">
           <span className="brand-mark">
             <img src="/clawd-logo.png" alt="" aria-hidden="true" />
           </span>
@@ -77,7 +77,7 @@ export default function Header() {
             Upload
           </Link>
           {isSoulMode ? null : <Link to="/import">Import</Link>}
-          <Link to="/search" search={{ q: undefined, highlighted: undefined }}>
+          <Link to="/" search={{ q: undefined, highlighted: undefined, search: true }}>
             Search
           </Link>
           {me ? <Link to="/stars">Stars</Link> : null}
@@ -126,7 +126,7 @@ export default function Header() {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem asChild>
-                  <Link to="/search" search={{ q: undefined, highlighted: undefined }}>
+                  <Link to="/" search={{ q: undefined, highlighted: undefined, search: true }}>
                     Search
                   </Link>
                 </DropdownMenuItem>
